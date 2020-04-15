@@ -4,7 +4,7 @@ import numpy as np
 
 from utils import PROJECT_BASE_DIR
 
-from env.mazeworld.maze_world_generator import MazeWorldGenerator
+from env.mazeworld.mazeworld_generator import MazeWorldGenerator
 
 CACHE_DIR: str = os.path.join(
     PROJECT_BASE_DIR,

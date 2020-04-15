@@ -212,7 +212,7 @@ class MazeWorldGenerator:
         assert np.array_equal(point, self._clip_point(point)) 
         # assert that point is valid within game bounds
         state: np.ndarray = self._game_state[point[0], point[1], :]
-        # state: np.ndarray[float] : [3,]
+        # state: np.ndarray[float] : [2,]
         if state[0]:
             return "Wall"
         elif state[1]:

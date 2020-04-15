@@ -52,7 +52,7 @@ def array_contains(el: np.ndarray, list: Iterable[np.ndarray]) -> bool:
 def array_random_choice(elems: Iterable[np.ndarray], random: np.random = None) -> np.ndarray:
     """
         elems : elements to choose from among
-        random : random generator if desired, uses default random if not
+        random : random state if desired, uses default random if not
         returns a random array from the list of arrays, used because
         np.random.choice only accepts 1D arrays
     """
@@ -66,7 +66,7 @@ def array_shuffle(elems: Iterable[np.ndarray], random: np.random = None) -> List
     """
         shuffles an array of arrays, not in place
         elems: array of np.ndarrays to shuffle
-        random: random seed to use, uses np.random if not provided
+        random: random state to use, uses np.random if not provided
         returns: list with same elements as elems, in shuffled order
     """
     elems = list(elems)
@@ -76,4 +76,13 @@ def array_shuffle(elems: Iterable[np.ndarray], random: np.random = None) -> List
     np.random.shuffle(indices)
     return [elems[i] for i in indices]
 
+def optional_random(rand_seed: Union[int, np.random] = None):
+    if rand_seed is None:
+        return np.random
+    elif isinstance(rand_seed, np.random):
+        return rand_seed
+    else:
+        return np.random.RandomState(rand_seed)
+
 PROJECT_BASE_DIR: str = os.path.dirname(__file__)
+

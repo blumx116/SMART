@@ -29,7 +29,7 @@ class GreedyMazeAgent:
             return None 
         return self.env.actions[np.argmin(distance_deltas)]
 
-    def observe(self, reward:float, state: State, goal: Goal) -> None:
+    def observe(self, reward: float, state: State, goal: Goal) -> None:
         pass
 
     def _distance(self, location: Point, goal: Goal) -> float:

@@ -99,6 +99,7 @@ class MazeWorld:
 
     def _grid_to_point(self, grid: Goal) -> Point:
         assert np.sum(grid) == np.max(grid) == 1 #one-hot
+        return np.argmax(grid)
 
     def _create_random_problem(self, rand_seed: Union[int, np.random] = None) -> Tuple[Point, Point]:
         random = optional_random(rand_seed)

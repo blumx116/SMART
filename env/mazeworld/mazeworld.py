@@ -11,6 +11,10 @@ Action = np.ndarray # np.ndarray[int]: [4,], onehot
 
 class MazeWorld:
     tile_types = ["Wall", "Lava", "Empty"]
+    actions = [ np.asarray([1,0,0,0]),
+                np.asarray([0,1,0,0]),
+                np.asarray([0,0,1,0]),
+                np.asarray([0,0,0,1])]
 
     def __init__(self, grid: np.ndarray):
         self._grid: np.ndarray = grid.astype(float) # np.ndarray[float] : [y_dim, x_dim, 2]
@@ -92,6 +96,9 @@ class MazeWorld:
         result: np.ndarray = np.full((self.y_dim, self.x_dim), 0, dtype=float)
         result[point[0], point[1]] = 1.
         return result
+
+    def _grid_to_point(self, grid: Goal) -> Point:
+        assert np.sum(grid) == np.max(grid) == 1 #one-hot
 
     def _create_random_problem(self, rand_seed: Union[int, np.random] = None) -> Tuple[Point, Point]:
         random = optional_random(rand_seed)

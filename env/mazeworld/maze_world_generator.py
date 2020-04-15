@@ -1,26 +1,36 @@
+import os
 from typing import List, Iterable
-import matplotlib.pyplot as plt 
 
+import matplotlib.pyplot as plt 
 import numpy as np
 
-from utils import flatmap, array_unique, array_contains, array_random_choice, array_shuffle
+from utils import (
+    flatmap, array_unique, array_contains, 
+    array_random_choice, array_shuffle, PROJECT_BASE_DIR)
+
+MAZEWORLD_CACHE_DIR: str = os.path.join(PROJECT_BASE_DIR, "env", "mazeworld", "gridworld-caches"))
 
 class MazeWorldGenerator:
     tile_types = ["Wall", "Lava", "Empty"]
 
-    def __init__(self, y_dim: int, x_dim: int, random_wall: int, n_wall: int, n_lava: int):
+    def __init__(self, y_dim: int, x_dim: int, random_wall: int, n_wall: int, n_lava: int, random:):
+        """
+            Class for creating new gridworld environments of given format. 
+            y_dim : number of grid tiles in the y direction
+            x_dim : number of grid tiles in the x direction
+            random_wall : number of wall tiles to place randomly before growing walls
+            n_wall : total number of wall tiles to try to place
+            n_lava : total number of lava tiles to try to place
+        """
         self.x_dim : int = x_dim 
         self.y_dim : int = y_dim 
         self.random_wall = random_wall
         self.n_wall :int = n_wall
         self.n_lava :int = n_lava
+        self.random = None 
         self._clear_state()
 
     def new(self) -> np.ndarray:
-        """
-            Resets the environment to a random start
-            returns np.ndarray[float] : [y_dim, x_dim, 3]
-        """
         self._randomize_state()
         return self.state()
 
@@ -36,16 +46,23 @@ class MazeWorldGenerator:
         # add 2 to each dimension because we add a row of walls
         self._add_boundary_walls()
 
-    def _add_boundary_walls(self) -> None:
+    def _add_boundary_walls(self, grid: np.ndarray) -> np.ndarray:
         """
-            Adds walls to all tiles on the boundary
+            Adds walls to all tiles on the boundary. Walls are added in new grid tiles
+            along boundary
+            grid: np.ndarray[bool] : [y_dim, x_dim, 2], grid to be added to
+            returns : np.ndarray[bool] : [y_dim+2, x_dim+2, 2], grid with walls added
         """
-        self._game_state[0,:,0] = 1.
-        self._game_state[:,0,0] = 1.
-        self._game_state[-1,:,0] =1.
-        self._game_state[:,-1,0] =1.
+        shape: Tuple[int] = (grid.shape[0] + 2, grid.shape[1] + 2, ) + grid.shape[2:]
+        new_grid = np.full(shape, False, bool) #np.ndarray[bool] : [y_dim+2, x_dim+2, 2]
+        new_grid[1:-1, 1:-1, :] = grid #copy old values
+        new_grid[0,:,0] = True #Top Wall
+        new_grid[:,0,0] = True #Left Wall
+        new_grid[-1,:,0] =True #Bottom Wall
+        new_grid[:,-1,0] =True #Right Wall
+        return new_grid
 
-    def _extend_tree(self, tree: List[np.ndarray], required_type: str) -> np.ndarray:
+    def _extend_tree(self, tree: List[np.ndarray], required_type: str=None) -> np.ndarray:
         """
             will find a point that is adjacent to one of the points on the tree
             but does not break the tree property when added to the list. Choice 

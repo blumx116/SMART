@@ -1,5 +1,5 @@
-from mazeworld import MazeWorld
 from utils import array_unique
+from env.mazeworld.maze_world import MazeWorld
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm

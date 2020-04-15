@@ -1,3 +1,4 @@
+import os
 from typing import List, Iterable, TypeVar, Union, Tuple
 
 import numpy as np
@@ -62,9 +63,17 @@ def array_random_choice(elems: Iterable[np.ndarray], random: np.random = None) -
     return elems[idx]
 
 def array_shuffle(elems: Iterable[np.ndarray], random: np.random = None) -> List[np.ndarray]:
+    """
+        shuffles an array of arrays, not in place
+        elems: array of np.ndarrays to shuffle
+        random: random seed to use, uses np.random if not provided
+        returns: list with same elements as elems, in shuffled order
+    """
     elems = list(elems)
     if random is None:
         random = np.random
     indices = np.arange(len(elems))
     np.random.shuffle(indices)
     return [elems[i] for i in indices]
+
+PROJECT_BASE_DIR: str = os.path.dirname(__file__)

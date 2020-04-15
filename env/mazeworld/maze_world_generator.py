@@ -8,12 +8,12 @@ from utils import (
     flatmap, array_unique, array_contains, 
     array_random_choice, array_shuffle, PROJECT_BASE_DIR)
 
-MAZEWORLD_CACHE_DIR: str = os.path.join(PROJECT_BASE_DIR, "env", "mazeworld", "gridworld-caches"))
+MAZEWORLD_CACHE_DIR: str = os.path.join(PROJECT_BASE_DIR, "env", "mazeworld", "gridworld-caches")
 
 class MazeWorldGenerator:
     tile_types = ["Wall", "Lava", "Empty"]
 
-    def __init__(self, y_dim: int, x_dim: int, random_wall: int, n_wall: int, n_lava: int, random:):
+    def __init__(self, y_dim: int, x_dim: int, random_wall: int, n_wall: int, n_lava: int):
         """
             Class for creating new gridworld environments of given format. 
             y_dim : number of grid tiles in the y direction
@@ -27,40 +27,47 @@ class MazeWorldGenerator:
         self.random_wall = random_wall
         self.n_wall :int = n_wall
         self.n_lava :int = n_lava
-        self.random = None 
         self._clear_state()
 
-    def new(self) -> np.ndarray:
+    def make(self, random_seed: int) -> np.ndarray:
+        self.random = np.random.RandomState(random_seed)
         self._randomize_state()
-        return self.state()
-
-    def state(self):
         return self._game_state
 
+    def name(self) -> str:
+        return f"gridworld({self.y_dim}x{self.x_dim})-" + \
+            f"wall({self.random_wall}, {self.n_wall})-lava({self.n_lava})"
 
     def _clear_state(self) -> None:
         """
             sets the board state to a clear board of all 0's
         """
-        self._game_state = np.zeros((self.y_dim+2, self.x_dim+2, 2))
+        self._game_state = np.zeros((self.y_dim, self.x_dim, 2))
         # add 2 to each dimension because we add a row of walls
         self._add_boundary_walls()
 
-    def _add_boundary_walls(self, grid: np.ndarray) -> np.ndarray:
+    def _add_boundary_walls(self) -> np.ndarray:
         """
             Adds walls to all tiles on the boundary. Walls are added in new grid tiles
             along boundary
-            grid: np.ndarray[bool] : [y_dim, x_dim, 2], grid to be added to
             returns : np.ndarray[bool] : [y_dim+2, x_dim+2, 2], grid with walls added
         """
-        shape: Tuple[int] = (grid.shape[0] + 2, grid.shape[1] + 2, ) + grid.shape[2:]
-        new_grid = np.full(shape, False, bool) #np.ndarray[bool] : [y_dim+2, x_dim+2, 2]
-        new_grid[1:-1, 1:-1, :] = grid #copy old values
-        new_grid[0,:,0] = True #Top Wall
-        new_grid[:,0,0] = True #Left Wall
-        new_grid[-1,:,0] =True #Bottom Wall
-        new_grid[:,-1,0] =True #Right Wall
-        return new_grid
+        shape: Tuple[int] = (self._game_state.shape[0] + 2, self._game_state.shape[1] + 2, ) + self._game_state.shape[2:]
+        new_grid = np.full(shape, True, bool) #np.ndarray[bool] : [y_dim+2, x_dim+2, 2]
+        new_grid[:,:,1] = False #set all of the tiles to not have lava
+        new_grid[1:-1, 1:-1, :] = self._game_state #copy old values
+        self._game_state = new_grid
+        return self._game_state
+
+    def _remove_boundary_walls(self) -> np.ndarray:
+        """
+            Removes the walls on the edges of the game state
+            returns : np.ndarray[bool] : [y_dim, x_dim, 2], grid with walls added
+        """
+        self._game_state = self._game_state[1:-1, 1:-1, :] 
+        # np.ndarray[bool] : [y_dim, x_dim, 2]
+        return self._game_state
+
 
     def _extend_tree(self, tree: List[np.ndarray], required_type: str=None) -> np.ndarray:
         """
@@ -116,7 +123,7 @@ class MazeWorldGenerator:
     def _add_lava(self, n_tiles: int) -> None:
         for _ in range(n_tiles):
             point: np.ndarray = self._random_point("Empty")
-            self._game_state[point[0], point[1], 1] = 1.
+            self._game_state[point[0], point[1], 1] = True
             
 
     def _tile_is_of_type(self, point: np.ndarray, required_type: str=None) -> bool:
@@ -144,7 +151,7 @@ class MazeWorldGenerator:
 
         def add_wall(point: np.ndarray) -> None:
             wall_tree.append(point)
-            self._game_state[point[0], point[1], 0] = 1.
+            self._game_state[point[0], point[1], 0] = True
 
         for i in range(self.random_wall):
             point: np.ndarray = self._random_point("Empty")
@@ -163,7 +170,7 @@ class MazeWorldGenerator:
                 place no stipulations
             result : np.ndarray[int] : [2,] (y, x)
         """
-        point: np.ndarray = np.asarray([np.random.randint(self.y_dim), np.random.randint(self.x_dim)])
+        point: np.ndarray = np.asarray([self.random.randint(self.y_dim), self.random.randint(self.x_dim)])
         if required_type is not None and required_type != self._get_tile_type(point):
             return self._random_point(required_type)
         return point
@@ -206,9 +213,9 @@ class MazeWorldGenerator:
         # assert that point is valid within game bounds
         state: np.ndarray = self._game_state[point[0], point[1], :]
         # state: np.ndarray[float] : [3,]
-        if state[0] == 1.:
+        if state[0]:
             return "Wall"
-        elif state[1] == 1.:
+        elif state[1]:
             return "Lava"
         else:
             return "Empty"

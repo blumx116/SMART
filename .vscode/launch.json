@@ -8,7 +8,7 @@
             "program": "${file}",
             "cwd": "${workspaceRoot}",
             "env": {
-                "PYTHONPATH": "${pythonPath}:${workspaceFolder}"
+                "PYTHONPATH": "${workspaceRoot}"
             }
         }
     ]

@@ -1,5 +1,5 @@
-from utils import array_unique
-from env.mazeworld.maze_world import MazeWorld
+from env.mazeworld.maze_world_generator import MazeWorldGenerator
+from env.mazeworld.maze_world_cache import MazeWorldCache
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
@@ -7,11 +7,12 @@ from tqdm import tqdm
 import pickle as pkl 
 import dill
 
-world = MazeWorld(17, 17, 10,  100, 15)
-
-for i in range(67, 150):
-    gridworld: np.ndarray = world.reset()
-    # np.save(f"gridworld_{i}.csv", gridworld)
+generator = MazeWorldGenerator(17, 17, 10,  100, 15)
+cache = MazeWorldCache(generator)
+for i in range(50):
+    
+    gridworld: np.ndarray = cache._get_cached_board(i)
 
     plt.imshow(gridworld[:,:,0] + (2 * gridworld[:,:,1]))
     plt.show()
+    

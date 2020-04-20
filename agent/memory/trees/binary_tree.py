@@ -12,10 +12,18 @@ class BinaryTree(Generic[T]):
     """
     def __init__(self):
         self.root: BinaryTreeNode[T] = BinaryTreeNode(None, None)
+        self.size = 0 #don't count root node
 
     def _opposite_direction_(self, direction: str) -> str:
         assert direction in ['left', 'right']
         return'left' if direction == 'right' else 'right'
+
+    def list_nodes(self) -> List[BinaryTreeNode[T]]:
+        result = []
+        if len(self) == 0:
+            return []
+        else:
+            result
 
     def add_left(self, value: T, node: BinaryTreeNode[T]) -> BinaryTreeNode[T]:
         """
@@ -86,6 +94,7 @@ class BinaryTree(Generic[T]):
             'node': the 'node' to add to the left or right of, doesn't need to have free spots
             returns : the newly created node
         """
+        self.size += 1
         other: str = self._opposite_direction_(direction)
         if not node.has_relation(direction): #if you can add directly to left or right, do so
             return node.add_relation(value, direction)
@@ -141,3 +150,6 @@ class BinaryTree(Generic[T]):
         while subtree_root.has_relation(direction):
             subtree_root = subtree_root.get_relation(direction)
         return subtree_root
+
+    def __len__(self) -> int:
+        return self.size

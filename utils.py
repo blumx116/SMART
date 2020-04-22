@@ -49,7 +49,7 @@ def array_contains(el: np.ndarray, list: Iterable[np.ndarray]) -> bool:
             return True
     return False
 
-def array_random_choice(elems: Iterable[np.ndarray], random: np.random = None) -> np.ndarray:
+def array_random_choice(elems: Iterable[np.ndarray], random: np.random.RandomState = None) -> np.ndarray:
     """
         elems : elements to choose from among
         random : random state if desired, uses default random if not
@@ -62,7 +62,7 @@ def array_random_choice(elems: Iterable[np.ndarray], random: np.random = None) -
     idx = random.choice(len(elems))
     return elems[idx]
 
-def array_shuffle(elems: Iterable[np.ndarray], random: np.random = None) -> List[np.ndarray]:
+def array_shuffle(elems: Iterable[np.ndarray], random: np.random.RandomState = None) -> List[np.ndarray]:
     """
         shuffles an array of arrays, not in place
         elems: array of np.ndarrays to shuffle
@@ -76,13 +76,13 @@ def array_shuffle(elems: Iterable[np.ndarray], random: np.random = None) -> List
     np.random.shuffle(indices)
     return [elems[i] for i in indices]
 
-def optional_random(rand_seed: Union[int, np.random] = None):
+def optional_random(rand_seed: Union[int, np.random.RandomState] = None):
     if rand_seed is None:
         return np.random
-    elif isinstance(rand_seed, np.random):
-        return rand_seed
-    else:
+    elif isinstance(rand_seed, int):
         return np.random.RandomState(rand_seed)
+    else:
+        return rand_seed
 
 PROJECT_BASE_DIR: str = os.path.dirname(__file__)
 

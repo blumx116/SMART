@@ -35,5 +35,4 @@ class MazeWorldCache:
             # because numpy automatically adds it
             board: np.ndarray = self.generator.make(rand_seed)
             np.save(fpath, board)
-            return board
-
+            return board 

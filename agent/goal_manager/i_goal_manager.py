@@ -7,7 +7,7 @@ from misc.typevars import State, Goal, Reward, Environment, Action
 
 
 class IGoalManager(Interface, Generic[State, Goal]):
-    def observe(self, state: State, action: Action, reward: Reward) -> None:
+    def view(self, state: State, action: Action, reward: Reward) -> None:
         pass
 
     def reset(self, env: Environment, goal: Goal) -> None:

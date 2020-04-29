@@ -5,6 +5,9 @@ from interface import Interface
 from misc.typevars import State, Action, Reward, Goal, Environment
 
 class IMemoryManager(Interface, Generic[State, Action, Reward, Goal]):
+    def view(self, state: State, action: Action, reward: Reward) -> None:
+        pass 
+    
     def reset(self, env: Environment, goal: Goal) -> None:
         pass
 

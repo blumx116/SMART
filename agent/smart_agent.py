@@ -24,9 +24,9 @@ class SMARTAgent(Generic[State, Goal, Action, Reward, Environment]):
             cur_goal = self._plan(state, cur_goal)
         return self.low_level.act(state, cur_goal.value)
 
-    def observe(self, state: State, action: Action, reward: Reward) -> None:
-        self.goal_manager.observe(state, action, reward)
-        self.low_level_agent.observe(state, action, reward)
+    def view(self, state: State, action: Action, reward: Reward) -> None:
+        self.goal_manager.view(state, action, reward)
+        self.low_level_agent.view(state, action, reward)
     
     def reset(self, env: Environment, goal: Goal) -> None:
         self.goal_manager.reset(env, goal)
@@ -35,6 +35,8 @@ class SMARTAgent(Generic[State, Goal, Action, Reward, Environment]):
         self._terminal_goal = Node(goal)
         self._current_goal = self._terminal_goal
         self._actionable_goal = None
+
+
 
     def step(self) -> None:
         self.goal_manager.step()

@@ -30,4 +30,4 @@ class Node(Generic[T]):
 
     def get_relation(self, attr: str) -> Node[T]:
         assert Node._is_valid_relation(attr)
-        return getattr(self, attr) is None
+        return getattr(self, attr)

@@ -9,7 +9,7 @@ class IMemory(Generic[Goal, State]):
         self.goal = goal
         self.n_obs = n_obs
 
-    def observe(self, reward: float, state: State, goal: Goal) -> None:
+    def view(self, reward: float, state: State, goal: Goal) -> None:
         self.n_obs += 1
         pass
 

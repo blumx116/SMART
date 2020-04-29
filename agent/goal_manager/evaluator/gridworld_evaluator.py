@@ -96,6 +96,8 @@ class GridworldEvaluator:
         self.context = torch.from_numpy(env._grid).float().to(self.device)
 
     def step(self, memory_manager: IMemoryManager) -> None:
+        if len(memory_manager) == 0:
+            return
         truths: List[float] = []
         preds: List[torch.Tensor] = [] 
         for i in range(50):

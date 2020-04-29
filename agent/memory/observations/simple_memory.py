@@ -16,9 +16,9 @@ class SimpleMemory(IMemory[Goal, State]):
         self.rewards: float = rewards
 
     @override
-    def observe(self, reward: float, state: State, goal: Goal) -> None:
-        super().observe(reward, state, goal)
-        self.rewards += (gamma ** self.n_obs) * reward
+    def view(self, reward: float, state: State, goal: Goal) -> None:
+        super().view(reward, state, goal)
+        self.rewards += (self.gamma ** self.n_obs) * reward
         self.state = state 
         self.goal = goal 
 
@@ -35,7 +35,7 @@ class SimpleMemory(IMemory[Goal, State]):
         assert self.terminal_state() == other.initial_state()
         assert self.gamma == other.gamma 
         result: SimpleMemory[Goal, State] = \
-            SimpleMemory(gamma = gamma, 
+            SimpleMemory(gamma = self.gamma, 
             goal=other.goal, 
             state=self.initial_state(), 
             rewards=self.total_rewards() + \

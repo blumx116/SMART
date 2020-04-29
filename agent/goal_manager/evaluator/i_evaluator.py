@@ -14,9 +14,16 @@ class IEvaluator(Interface, Generic[State, Action, Reward, Goal]):
         pass 
 
     def choose_subgoal(self, possible_subgoals: List[Goal], 
-        state: State, goal_node: Node[Goal]) -> Tuple[Goal, List[float]]:
+        state: State, goal_node: Node[Goal]) -> Tuple[Goal, np.ndarray]:
         # returns chosen goal and scores
         pass
+
+    def score_subgoals(self, subgoals: List[Goal], state: State, goal: Goal) -> np.ndarray:
+        pass 
+
+    def selection_proabilities(self, subgoals: List[Goal], scores: np.ndarray, 
+        state: State, goal: Goal) -> np.ndarray:
+        pass 
 
     def step(self, memory_manager: IMemoryManager) -> None:
         pass 

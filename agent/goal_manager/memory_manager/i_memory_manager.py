@@ -1,4 +1,4 @@
-from typing import Generic
+from typing import Generic, Tuple 
 
 from interface import Interface
 
@@ -10,6 +10,9 @@ class IMemoryManager(Interface, Generic[State, Action, Reward, Goal]):
     
     def reset(self, env: Environment, goal: Goal) -> None:
         pass
+
+    def generate_sample(self) -> Tuple[State, Goal, float]:
+        pass 
 
     def _observe_add_subgoal(self, subgoal_node: Node[Goal], existing_goal_node: Node[Goal]) -> None:
         pass

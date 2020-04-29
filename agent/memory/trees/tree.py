@@ -155,6 +155,13 @@ class Tree(Generic[T]):
             return Tree.add_right(new_value, parent)
 
     @staticmethod
+    def mirror_get(existing_node: Node[T], original_root: Node[T], new_root: Nove[V]) -> Node[V]:
+        assert Tree.is_ancestor_of(original_root, existing_node)
+        index: int = Tree.get_index_of(existing_node, original_root)
+        assert new_root.size > index 
+        return Tree.get_by_index(new_root, index)
+
+    @staticmethod
     def subtree_size(node: Node[T], direction: str) -> int:
         direction = Tree._parse_direction(direction)
         if node.has_relation(direction):

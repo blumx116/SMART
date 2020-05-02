@@ -24,6 +24,14 @@ class SMARTAgent(Generic[State, Goal, Action, Reward, Environment]):
             cur_goal = self._plan(state, cur_goal)
         return self.low_level.act(state, cur_goal.value)
 
+    def _plan(self, state: State, existing_goal: Node[Goal]) -> Node[Goal]:
+        if self.goal_manager.should_terminate_planning(state, existing_goal):
+            self._actionable_goal = existing_goal
+            return self._actionable_goal
+        subgoal: Goal = self.goal_manager.select_next_subgoal(state, existing_goal) 
+        subgoal_node: Node[Goal] = self._add_subgoal(subgoal, existing_goal)
+        return self._plan(state, subgoal_node)
+
     def view(self, state: State, action: Action, reward: Reward) -> None:
         self.goal_manager.view(state, action, reward)
         self.low_level_agent.view(state, action, reward)
@@ -35,8 +43,6 @@ class SMARTAgent(Generic[State, Goal, Action, Reward, Environment]):
         self._terminal_goal = Node(goal)
         self._current_goal = self._terminal_goal
         self._actionable_goal = None
-
-
 
     def step(self) -> None:
         self.goal_manager.step()
@@ -87,13 +93,7 @@ class SMARTAgent(Generic[State, Goal, Action, Reward, Environment]):
     def _is_actionable(self, goal_node: Node[Goal]) -> bool:
         return self._goal_equal(goal_node, self._actionable_goal)
 
-    def _plan(self, state: State, existing_goal: Node[Goal]) -> Node[Goal]:
-        if self.goal_manager.should_terminate_planning(state, existing_goal):
-            self._actionable_goal = existing_goal
-            return self._actionable_goal
-        subgoal: Goal = self.goal_manager.select_next_subgoal(state, existing_goal) 
-        subgoal_node: Node[Goal] = self._add_subgoal(subgoal, existing_goal)
-        return self._plan(state, subgoal_node)
+
 
     def _should_abandon(self, state: State, goal_node: Node[Goal]) -> bool:
         if self._goal_equal(goal_node, self._terminal_goal):

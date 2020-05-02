@@ -42,13 +42,13 @@ class UtilitarianGoalManager(AGoalManager):
             self.evaluator.estimate_path_reward(state, goal_node)
         return expected_reward < self.tolerable_reward[goal_node.value]
 
-    def should_terminate_planning(self, state: State, goal_node: Node[Goal]) -> bool:
+    def should_terminate_planning(self, state: State, goal_node: Node[Goal]) -> float:
         subgoals: List[Goal] = self.generator.generate_subgoals(state, goal_node.value)
         scores: List[float] = self.evaluator.score_subgoals(subgoals, state, goal_node.value)
         probabilites: List[float] = self.evaluator.selection_probabilities(subgoals, scores, state, goal_node.value)
         expected_planned_score = np.dot(np.asarray(scores), np.asarray(probabilites))
         expected_unplanned_score = self.evaluator.estimate_path_reward(state, goal_node.value)
-        return (expected_planned_score / expected_unplanned_score) > self.plan_tolerance_mult
+        return sigmoid((expected_planned_score / expected_unplanned_score) - self.plan_tolerance_mult * k)
 
     def _observe_set_current_goal(self, goal_node: Node[Goal]) -> None:
         super()._observe_set_current_goal(goal_node)

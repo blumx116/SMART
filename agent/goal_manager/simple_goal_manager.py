@@ -16,6 +16,6 @@ class SimpleGoalManager(AGoalManager):
     def should_abandon(self, state: State, goal_node: Node[Goal]) -> bool:
         return False
 
-    def should_terminate_planning(self, state: State, goal_node: Node[Goal]) -> bool:
-        return goal_node.depth >= self.max_depth
+    def should_terminate_planning(self, state: State, goal_node: Node[Goal]) -> float:
+        return float(goal_node.depth >= self.max_depth)
         

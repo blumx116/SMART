@@ -1,3 +1,4 @@
-from .i_memory import IMemory
-from .simple_memory import SimpleMemory
-from .complete_memory import CompleteMemory
+from .i_observation import IObservation
+from .complete_observation import CompleteObservation
+ # from agent.memory.observations import i_memory
+ # some reason vscode detects an error without this???

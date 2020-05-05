@@ -9,8 +9,8 @@ class IEvaluator(Interface, Generic[State, Action, Reward, Goal]):
     def reset(self, env: Environment, goal: Goal) -> None:
         pass
 
-    def estimate_path_reward(self, state: Union[State, Goal], 
-        goal: Union[Goal, Node[Goal]]) -> float:
+    def estimate_path_reward(self, state: Union[State, Goal], prev_goal: Goal,
+        goal: Goal) -> float:
         pass 
 
     def choose_subgoal(self, possible_subgoals: List[Goal], 
@@ -21,7 +21,7 @@ class IEvaluator(Interface, Generic[State, Action, Reward, Goal]):
     def score_subgoals(self, subgoals: List[Goal], state: State, goal: Goal) -> np.ndarray:
         pass 
 
-    def selection_proabilities(self, subgoals: List[Goal], scores: np.ndarray, 
+    def selection_probabilities(self, subgoals: List[Goal], scores: np.ndarray, 
         state: State, goal: Goal) -> np.ndarray:
         pass 
 

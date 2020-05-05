@@ -19,7 +19,7 @@ class IGoalManager(Interface, Generic[State, Goal]):
     def should_abandon(self, state: State, goal_node: Node[Goal]) -> bool:
         pass 
 
-    def should_terminate_planning(self, state: State, goal_node: Node[Goal]) -> bool:
+    def should_terminate_planning(self, state: State, goal_node: Node[Goal]) -> float:
         pass 
 
     def step(self) -> None:

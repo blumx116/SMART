@@ -39,7 +39,7 @@ class CompleteMemory(implements(IMemory[State, Action, Reward, Goal])):
         depth: int = goal_node.depth 
         cur_node: Node[Goal] = goal_node
         while cur_node.depth >= depth:
-            cur_node: Node[Goal] = Tree.prev(cur_node)
+            cur_node: Node[Goal] = Tree.get_next_left(cur_node)
             trajectory = cur_node.trajectory + trajectory
         return trajectory
 
@@ -48,6 +48,6 @@ class CompleteMemory(implements(IMemory[State, Action, Reward, Goal])):
         depth: int = goal_node.depth 
         cur_node: Node[Goal] = goal_node
         while cur_node.depth >= depth:
-            cur_node: Node[Goal] = Tree.prev(cur_node)
+            cur_node: Node[Goal] = Tree.get_next_left(cur_node)
             initial_state = cur_node.initial_state
         return initial_state

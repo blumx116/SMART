@@ -1,6 +1,6 @@
 from typing import TypeVar, Generic, List
 
-from agent.memory.trees.binary_tree_node import Node
+from .node import Node
 
 T = TypeVar("T")
 V = TypeVar("V")

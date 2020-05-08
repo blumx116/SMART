@@ -3,12 +3,14 @@ from typing import Tuple, Union, List
 import numpy as np
 from numpy.random import RandomState
 
-from utils import optional_random, array_random_choice
+from misc.utils import optional_random, array_random_choice
 
 State = np.ndarray # np.ndarray[float] : [y_dim, x_dim, 3]
+Action = np.ndarray # np.ndarray[float]: [4,], onehot
+Reward = float 
 Goal = np.ndarray # np.ndarray[int]: [y_dim, x_dim, 1]
 Point = np.ndarray # np.ndarray[int]: [2,] (y, x)
-Action = np.ndarray # np.ndarray[int]: [4,], onehot
+
 
 class MazeWorld:
     tile_types = ["Wall", "Lava", "Empty"]
@@ -60,6 +62,18 @@ class MazeWorld:
         if action >= 2:
             direction *= -1
         return direction 
+
+    def _direction_to_action(self, direction: Point) -> Action:
+        assert np.sum(np.abs(direction)) - 1 == 0
+        assert np.sum(direction) == np.max(direction)
+        # check 1-hot
+        action: Action = np.zeros((4,), dtype=float)
+        nonzero: int = np.nonzero(action)
+        is_negative = direction[nonzero] < 0
+        action[nonzero + (2 * is_negative)] = 1.
+        return action
+
+
 
     def _clip_point(self, point: Point) -> Point:
         return np.clip(point, [0, 0], [self.y_dim+1, self.x_dim+1])

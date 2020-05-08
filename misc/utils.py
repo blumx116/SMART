@@ -41,7 +41,7 @@ def array_unique(data: Iterable[np.ndarray], return_inverse=False,
         result = result + (count_ret, )
     return unpack_tuple(result)
 
-def array_contains(el: np.ndarray, list: Iterable[np.ndarray]) -> bool:
+def array_contains(el: T, list: Iterable[T]) -> bool:
     """
         returns whether or not el is in list
     """
@@ -49,6 +49,12 @@ def array_contains(el: np.ndarray, list: Iterable[np.ndarray]) -> bool:
         if np.array_equal(el, element):
             return True
     return False
+
+def array_equal(el1: T, el2: T) -> bool:
+    if isinstance(el1, np.ndarray) and isinstance(el2, np.ndarray):
+        return np.array_equal(el1, el2)
+    else:
+        return el1 == el2
 
 def array_random_choice(elems: Iterable[np.ndarray], random: np.random.RandomState = None) -> np.ndarray:
     """
@@ -62,6 +68,8 @@ def array_random_choice(elems: Iterable[np.ndarray], random: np.random.RandomSta
         random = np.random
     idx = random.choice(len(elems))
     return elems[idx]
+
+
 
 def array_shuffle(elems: Iterable[np.ndarray], random: np.random.RandomState = None) -> List[np.ndarray]:
     """

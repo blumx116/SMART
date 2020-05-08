@@ -4,7 +4,7 @@ import numpy as np
 RandomState = np.random.RandomState
 
 from env.mazeworld import MazeWorld
-from utils import array_contains, array_random_choice, optional_random
+from misc.utils import array_contains, array_random_choice, optional_random
 
 Point = np.ndarray # np.ndarray[int]: [2,] (y, x)
 Action = np.ndarray # np.ndarray[int]: [4,], onehot

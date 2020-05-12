@@ -6,7 +6,7 @@ from env.mazeworld import MazeWorld, State, Action, Reward, Point, Goal
 
 InnerType = ISimpleAgent[MazeWorld, Point, Action, Reward, Point]
 
-class Grid2PointWrapper(implements(ISimpleAgent[MazeWorld, State, Action, Reward, Goal])):
+class Grid2PointWrapper(ISimpleAgent[MazeWorld, State, Action, Reward, Goal]):
     def __init__(self, inner: InnerType):
         self.inner: InnerType = inner
         self.env: MazeWorld = None
@@ -26,8 +26,8 @@ class Grid2PointWrapper(implements(ISimpleAgent[MazeWorld, State, Action, Reward
 
     def _convert_state(self, state: State) -> Point:
         assert self.env is not None
-        location_data: np.ndarray = state[:,:,1, np.newaxis]
-        return self.env._grid_to_point(location_data)
+        location_data: np.ndarray = state[:,:,2, np.newaxis]
+        return self.env._grid_to_point(location_data).astype(int)
 
     def _convert_goal(self, goal: Goal) -> Point:
-        return self.env._grid_to_point(goal)    
+        return self.env._grid_to_point(goal).astype(int)

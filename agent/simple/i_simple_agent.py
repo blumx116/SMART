@@ -1,10 +1,8 @@
 from typing import Generic
 
-from interface import Interface
+from misc.typevars import Environment, State,Action,  Reward, Goal 
 
-from misc.typevars import Environment, State,Action,  Reward, Goal, 
-
-class ISimpleAgent(Interface, Generic[Environment, State, Action, Reward, Goal]):
+class ISimpleAgent(Generic[Environment, State, Action, Reward, Goal]):
     def reset(self, env: Environment, state: State, goal: Goal) -> None:
          pass 
 

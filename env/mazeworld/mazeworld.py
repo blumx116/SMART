@@ -8,39 +8,39 @@ from misc.utils import optional_random, array_random_choice
 State = np.ndarray # np.ndarray[float] : [y_dim, x_dim, 3]
 Action = np.ndarray # np.ndarray[float]: [4,], onehot
 Reward = float 
-Goal = np.ndarray # np.ndarray[int]: [y_dim, x_dim, 1]
+Goal = np.ndarray # np.ndarray[float]: [y_dim, x_dim, 1]
 Point = np.ndarray # np.ndarray[int]: [2,] (y, x)
 
 
 class MazeWorld:
     tile_types = ["Wall", "Lava", "Empty"]
-    actions = [ np.asarray([1,0,0,0]),
-                np.asarray([0,1,0,0]),
-                np.asarray([0,0,1,0]),
-                np.asarray([0,0,0,1])]
+    actions = [ np.asarray([1,0,0,0], dtype=float),
+                np.asarray([0,1,0,0], dtype=float),
+                np.asarray([0,0,1,0], dtype=float),
+                np.asarray([0,0,0,1], dtype=float)]
 
     def __init__(self, grid: np.ndarray):
         self._grid: np.ndarray = grid.astype(float) # np.ndarray[float] : [y_dim, x_dim, 2]
-        self._location: Point = None #np.ndarray[float] : [y_dim, x_dim, 1]
-        self._goal: Point = None #np.ndarray[float] : [y_dim, x_dim, 1]
+        self._location: Point = None #np.ndarray[int] : [y_dim, x_dim, 1]
+        self._goal: Point = None #np.ndarray[int] : [y_dim, x_dim, 1]
 
-        self.y_dim = self._grid.shape[0]
-        self.x_dim = self._grid.shape[1]
+        self.y_dim: int = self._grid.shape[0]
+        self.x_dim: int = self._grid.shape[1]
 
     def state(self) -> State:
         assert self._location is not None 
         return np.concatenate((self._grid, self._point_to_grid(self._location)), axis=2)
 
-    def reset(self, rand_seed: Union[int, RandomState] = None) -> State:
+    def reset(self, rand_seed: Union[int, RandomState] = None) -> Tuple[State, Goal]:
         random = optional_random(rand_seed)
         self._location, self._goal = self._create_random_problem(random)
         self._goal_as_grid = self._point_to_grid(self._goal)
-        return self.state(), self._goal
+        return self.state(), self._goal_as_grid
 
     def _calculate_move(self, action: Action) -> Point:
         current: Position = self._location.copy()
         current += self._action_to_direction(action) #calculate delta
-        current = self._clip_point(current) #stay within bounds
+        current = self._clip_point(current).astype(int) #stay within bounds
         if self._tile_type_matches(current, "Wall"):
             return self._location.copy() #can't move in to a wall
         else:
@@ -65,18 +65,16 @@ class MazeWorld:
 
     def _direction_to_action(self, direction: Point) -> Action:
         assert np.sum(np.abs(direction)) - 1 == 0
-        assert np.sum(direction) == np.max(direction)
+        assert np.sum(np.abs(direction)) == np.max(np.abs(direction))
         # check 1-hot
         action: Action = np.zeros((4,), dtype=float)
-        nonzero: int = np.nonzero(action)
+        nonzero: int = np.nonzero(direction)[0]
         is_negative = direction[nonzero] < 0
         action[nonzero + (2 * is_negative)] = 1.
         return action
 
-
-
     def _clip_point(self, point: Point) -> Point:
-        return np.clip(point, [0, 0], [self.y_dim+1, self.x_dim+1])
+        return np.clip(point, [0, 0], [self.y_dim+1, self.x_dim+1]).astype(int)
 
     def get_tile_type(self, point: Point) -> str:
         assert np.array_equal(point, self._clip_point(point))
@@ -106,7 +104,6 @@ class MazeWorld:
         possibilities: List[Point] = self._all_tiles_of_type(required_type)
         return array_random_choice(possibilities, random)
 
-
     def _point_to_grid(self, point: Point) -> np.ndarray: #float, [y_dim, x_dim, 1]
         result: np.ndarray = np.full((self.y_dim, self.x_dim, 1), 0, dtype=float)
         result[point[0], point[1]] = 1.
@@ -114,7 +111,7 @@ class MazeWorld:
 
     def _grid_to_point(self, grid: Goal) -> Point:
         assert np.sum(grid) == np.max(grid) == 1 #one-hot
-        return np.argmax(grid)
+        return np.asarray(np.unravel_index(np.argmax(grid), grid.shape), dtype=int)[:2]
 
     def _create_random_problem(self, rand_seed: Union[int, RandomState] = None) -> Tuple[Point, Point]:
         random = optional_random(rand_seed)

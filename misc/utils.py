@@ -1,5 +1,5 @@
 import os
-from typing import List, Iterable, TypeVar, Union, Tuple
+from typing import List, Iterable, TypeVar, Union, Tuple, Generic
 
 import numpy as np
 
@@ -53,6 +53,13 @@ def array_contains(el: T, list: Iterable[T]) -> bool:
 def array_equal(el1: T, el2: T) -> bool:
     if isinstance(el1, np.ndarray) and isinstance(el2, np.ndarray):
         return np.array_equal(el1, el2)
+    elif isinstance(el1, Iterable) and isinstance(el2, Iterable):
+        if len(el1) != len(el2):
+            return False 
+        if len(el1) == len(el2) == 0:
+            return True 
+        else:
+            return array_equal(el1[0], el2[0]) and array_equal(el1[1:], el2[1:])
     else:
         return el1 == el2
 
@@ -93,7 +100,9 @@ def optional_random(rand_seed: Union[int, np.random.RandomState] = None):
     else:
         return rand_seed
 
-PROJECT_BASE_DIR: str = os.path.dirname(__file__)
+PROJECT_BASE_DIR: str = os.path.abspath(os.path.join(
+    os.path.dirname(__file__),
+    os.path.pardir))
 
 class NumPyDict(Generic[T, V]):
     def __init__(self, dtype=float):
@@ -134,7 +143,7 @@ class NumPyDict(Generic[T, V]):
         return self._pack_np(key) in self.inner 
 
     def keys(self) -> Iterable[T]:
-        return map(self._unpack_np, self.inner.keys())
+        return list(map(self._unpack_np, self.inner.keys()))
 
     def values(self) -> Iterable[V]:
         return self.inner.values()

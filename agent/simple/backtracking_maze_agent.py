@@ -1,4 +1,4 @@
-from typing import Set, List, NamedTuple, Iterable
+from typing import Set, List, NamedTuple, Iterable, Tuple
 
 import numpy as np
 from interface import implements
@@ -10,16 +10,24 @@ from misc.utils import NumPyDict, array_equal
 
 State = Point # np.ndarray[float] : [y_dim, x_dim, 3]
 Goal = Point # np.ndarray[int]: [2,] (y, x)
-Target = NamedTuple("Target", [('point', Point), ('states', List[State])]) 
 
-class BacktrackingMazeAgent(implements(ISimpleAgent[MazeWorld, State, Action, Reward, Goal])):
+#using this instead of NamedTuple for easy hashability
+class Target:
+    def __init__(self, point: Point, states: List[State]):
+        self.point : Point = point 
+        self.states: List[State]  = states 
+
+# Target = NamedTuple("Target", [('point', Point), ('states', List[State])]) 
+
+class BacktrackingMazeAgent(ISimpleAgent[MazeWorld, State, Action, Reward, Goal]):
     def __init__(self, env: MazeWorld):
         self.reset(env, None, None)
 
     def reset(self, env: MazeWorld, state: State, goal: Goal) -> None:
         self.env: MazeWorld = env 
         self.queue: PriorityQueue[Point] = PriorityQueue()
-        self.visited: NumpyDict[Point, bool] = NumPyDict()
+        self.visited: NumpyDict[Point, bool] = NumPyDict(int)
+        self.visited[state] = True
         self.current_goal: Goal = goal
         self.history: List[State] = [state] 
         self.current_target: Target = None
@@ -35,17 +43,22 @@ class BacktrackingMazeAgent(implements(ISimpleAgent[MazeWorld, State, Action, Re
             #forget everything whenever we switch goals
             self.reset(self.env, state, goal)
         if self.current_target is not None:
-            if np.array_equal(self.current_target.point, state):
+            if np.array_equal(self.current_target.point, state) or \
+                self.current_target.point in self.visited:
                 # abandon target if we reached it
                 self.current_target = None 
         if self.current_target is None:
             # add all adjacent tiles as possibilities
-            candidates: List[Tuple[int, Target]] = self._get_possible_targets()
+            candidates: List[Tuple[int, Target]] = self._get_possible_targets(state, goal)
             for dist_to_goal, target in candidates:
                 self.queue.put(target, dist_to_goal)
             #choose the point closest to the goal to pursue
             self.current_target: Target = self.queue.get()
-        self._move_towards(self.current_target)
+            while self.current_target.point in self.visited:
+                self.current_target = self.queue.get()
+            return self.act(state, goal)
+        else:
+            return self._move_towards(self.current_target)
 
     def observe(self, state: State, action: Action, reward: Reward) -> None:
         """
@@ -56,7 +69,7 @@ class BacktrackingMazeAgent(implements(ISimpleAgent[MazeWorld, State, Action, Re
         self.visited[state] = True 
         if len(self.history) > 1 and array_equal(self.history[-2], state):
                 #our last move was a backtrack
-                self.history = self.history[-1] 
+                self.history = self.history[:-1] 
                 #remove cycles from self.history
         else:
             self.history.append(state)
@@ -91,10 +104,10 @@ class BacktrackingMazeAgent(implements(ISimpleAgent[MazeWorld, State, Action, Re
             lambda action: self.env._calculate_move(action),
             self.env.actions)
         possibilities: Iterable[Target] = map(
-            lambda point: Target(point=point, actions=[point]+self.history),
-            self.env.actions)
+            lambda point: Target(point=point, states=self.history + [point]),
+            possibilities)
         possibilities: Iterable[Target] = filter(
-            lambda target: target not in self.visited,
+            lambda target: target.point not in self.visited,
             possibilities)
         possibilities: Iterable[Tuple[int, Target]] = map(
             lambda target: (self._manhattan_distance(target.point, goal), target),
@@ -113,11 +126,11 @@ class BacktrackingMazeAgent(implements(ISimpleAgent[MazeWorld, State, Action, Re
             identical -> in other words, the highest value such that the state at that 
             index and all indices before are the same between two trajectories.
         """
-        last_shared_index: int = -1 
+        index: int = -1
         for index, (state1, state2) in enumerate(zip(trajectory1, trajectory2)):
             if not array_equal(state1, state2):
-                return last_shared_index
-        return last_shared_index
+                return index - 1
+        return index
 
     def _move_towards(self, target: Target) -> Action:
         """
@@ -131,7 +144,7 @@ class BacktrackingMazeAgent(implements(ISimpleAgent[MazeWorld, State, Action, Re
         if index == len(cur_trajectory) - 1:
             # cur_trajectory is a subset of target_trajectory
             assert len(target_trajectory) > len(cur_trajectory)
-            return self._replicate_move(From=target_trajectory[index], To=target_trajectory[-1])
+            return self._replicate_move(From=target_trajectory[index], To=target_trajectory[index+1])
         else:
             # cur_trajectory has diverged from target_trajectory, need to backtrack
             assert len(cur_trajectory) >= 2
@@ -143,5 +156,5 @@ class BacktrackingMazeAgent(implements(ISimpleAgent[MazeWorld, State, Action, Re
             'From' and 'To' need to be adjacent
         """
         direction: Point = To - From 
-        assert np.sum(direction) == 1
+        assert np.sum(np.abs(direction)) == 1
         return self.env._direction_to_action(direction)

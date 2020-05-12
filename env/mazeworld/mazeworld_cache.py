@@ -2,7 +2,7 @@ import os
 
 import numpy as np
 
-from utils import PROJECT_BASE_DIR
+from misc.utils import PROJECT_BASE_DIR
 
 from env.mazeworld.mazeworld_generator import MazeWorldGenerator
 

@@ -9,7 +9,8 @@
             "cwd": "${workspaceRoot}",
             "env": {
                 "PYTHONPATH": "${workspaceRoot}"
-            }
+            },
+            "console": "internalConsole"
         }
     ]
 }

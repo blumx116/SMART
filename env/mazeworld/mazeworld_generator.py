@@ -4,7 +4,7 @@ from typing import List, Iterable
 import matplotlib.pyplot as plt 
 import numpy as np
 
-from utils import (
+from misc.utils import (
     flatmap, array_unique, array_contains, 
     array_random_choice, array_shuffle, PROJECT_BASE_DIR)
 

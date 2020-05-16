@@ -2,6 +2,7 @@ import os
 from typing import List, Iterable, TypeVar, Union, Tuple, Generic
 
 import numpy as np
+from np.random import RandomState
 
 T = TypeVar("T")
 V = TypeVar("V")
@@ -19,13 +20,30 @@ def unpack_tuple(tup: Tuple[T]) -> Union[T, Tuple[T]]:
     else: #len == 0
         return None 
 
+def optional_random(rand_seed: Union[int, RandomState] = None):
+    if rand_seed is None:
+        return np.random
+    elif isinstance(rand_seed, int):
+        return RandomState(rand_seed)
+    else:
+        return rand_seed
 
 def array_unique(data: Iterable[np.ndarray], return_inverse=False, 
         return_counts = False) -> List[np.ndarray]:
     """
         used for essentially calling np.unique on a list of np.ndarrays
+        NOTE: this is only needed because the default np.unique function can't handle arrays of arrays
+        Parameters
+        ----------
         data: Iterable[np.ndarray] : n_data => [ndarray_dims]
-        returns : List[np.ndarray] : n_unique => [ndarray_dims]
+            array of np.ndarrays to find unique elements from
+        return_inverse: bool
+            see np.unique docs
+        return_counts: bool
+            see np.unique docs
+        Returns
+        -------
+        uniquas : List[np.ndarray] : n_unique => [ndarray_dims]
             if return_inverse : np.ndarray[int] : [n_data] # see np.unique docs
             if return_counts  : np.ndarray[int] : [n_unique] # ditto
     """
@@ -41,16 +59,25 @@ def array_unique(data: Iterable[np.ndarray], return_inverse=False,
         result = result + (count_ret, )
     return unpack_tuple(result)
 
-def array_contains(el: T, list: Iterable[T]) -> bool:
-    """
-        returns whether or not el is in list
-    """
-    for element in list:
-        if np.array_equal(el, element):
-            return True
-    return False
+
 
 def array_equal(el1: T, el2: T) -> bool:
+    """
+        Checks if element 1 and 2 are equal
+        NOTE: this only exists because numpy's default handling of the == operator
+        is different from that of normal objects. This provides a data agnostic way
+        to check
+        Parameters
+        ----------
+        el1: T
+            left hand side of equality
+        el2: T
+            right hand side of equality
+        Returns
+        -------
+        equal?: bool
+            whether or not el1 == el2
+    """
     if isinstance(el1, np.ndarray) and isinstance(el2, np.ndarray):
         return np.array_equal(el1, el2)
     elif isinstance(el1, Iterable) and isinstance(el2, Iterable):
@@ -63,13 +90,43 @@ def array_equal(el1: T, el2: T) -> bool:
     else:
         return el1 == el2
 
-def array_random_choice(elems: Iterable[np.ndarray], random: np.random.RandomState = None) -> np.ndarray:
+def array_contains(el: T, elems: Iterable[T]) -> bool:
     """
-        elems : elements to choose from among
-        random : random state if desired, uses default random if not
-        returns a random array from the list of arrays, used because
-        np.random.choice only accepts 1D arrays
+        returns whether or not el is in elems
+        NOTE: This only exists because the default contains method doesn't work with np.ndarrays
+        Parameters
+        ----------
+        el: T
+            element to check for in elems
+        elems: Iterable[T]
+            elements to check whether el is a part of
+        Returns
+        -------
+        present: bool
+            whether or not el was present in elems
+        
     """
+    for element in list:
+        if array_equal(el, element):
+            return True
+    return False
+
+def array_random_choice(elems: Iterable[np.ndarray], random: Union[int, RandomState] = None) -> np.ndarray:
+    """
+        Randomly selects an element from elems to return. 
+        NOTE: Exists because default numpy function not compatible with np.ndarrays
+        Parameters
+        ----------
+        elems : Iterable[np.ndarray]
+            elements to choose from among
+        random : Union[int, RandomState]
+            random seed to use, uses global random if none provided
+        Returns
+        -------
+        selected: np.ndarray
+            the randomly selected element from the list
+    """
+    random: RandomState = optional_random(random)
     elems = list(elems)
     if random is None:
         random = np.random
@@ -78,13 +135,24 @@ def array_random_choice(elems: Iterable[np.ndarray], random: np.random.RandomSta
 
 
 
-def array_shuffle(elems: Iterable[np.ndarray], random: np.random.RandomState = None) -> List[np.ndarray]:
+def array_shuffle(elems: Iterable[np.ndarray], random: Union[int, RandomState] = None) -> List[np.ndarray]:
     """
-        shuffles an array of arrays, not in place
+        shuffles an array of arrays, out of place
+        NOTE: Exists because default numpy function not compatible with np.ndarrays
         elems: array of np.ndarrays to shuffle
-        random: random state to use, uses np.random if not provided
-        returns: list with same elements as elems, in shuffled order
+        Parameters
+        ----------
+        elems: Iterable[np.ndarray]
+            elements to be shuffled, not in place. Technically works on even if 
+            elements are not np.ndarrays
+        random: Union[int, RandomState]
+            random seed to use, uses global random if none provided
+        Returns
+        -------
+        shuffled: List[np.ndarray]
+            list with same elements as elems, in shuffled order
     """
+    random = optional_random(random)
     elems = list(elems)
     if random is None:
         random = np.random
@@ -92,19 +160,35 @@ def array_shuffle(elems: Iterable[np.ndarray], random: np.random.RandomState = N
     np.random.shuffle(indices)
     return [elems[i] for i in indices]
 
-def optional_random(rand_seed: Union[int, np.random.RandomState] = None):
-    if rand_seed is None:
-        return np.random
-    elif isinstance(rand_seed, int):
-        return np.random.RandomState(rand_seed)
-    else:
-        return rand_seed
+def bool_random_choice(probability: float, rand_seed: Union[int, RandomState] = None) -> bool:
+    """
+        Randomly chooses True with probability equal to 'probability'
+        and False otherwise, using rand_seed for random number generator
+        Possibly redundant.
+        Parameters
+        ----------
+        probability: float in [0, 1]
+            probability of returning True
+        rand_seed: Union[int, RandomState]
+            random seed to use, uses global random if none provided
+        Returns
+        -------
+        choice: bool
+            True or False, chosen randomly
+        """"
+    assert 0 <= probability <= 1
+    random: RandomState = optional_random(rand_seed)
+    return random.uniform() < probability
 
 PROJECT_BASE_DIR: str = os.path.abspath(os.path.join(
     os.path.dirname(__file__),
     os.path.pardir))
 
 class NumPyDict(Generic[T, V]):
+    """
+        A replacement class for dictionaries when numpy npdarrays need to be used as keys
+        Works by hashing key to bytes if np.ndarray, and behaving like a normal dict otherwise
+    """
     def __init__(self, dtype=float):
         self.inner = {}
         self.dtype = dtype

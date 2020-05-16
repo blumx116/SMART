@@ -1,3 +1,5 @@
+from typing import List, Tuple
+
 from interface import implements
 from torch import Tensor
 
@@ -9,9 +11,10 @@ from agent.goal_manager.memory_manager import IMemoryManager
 from misc.typevars import State, Goal, Reward, Environment
 from misc.typevars import MemoryManager, Evaluator, Generator
 
+Trajectory = List[Tuple[State, Action, Reward]]]
+
 class AGoalManager(implements(IGoalManager[State, Goal])):
-    def __init__(self, memory_manager: IMemoryManager, evaluator: IEvaluator, generator: IGenerator):
-        self.memory_manager: MemoryManager = memory_manager
+    def __init__(self, evaluator: IEvaluator, generator: IGenerator):
         self.evaluator: Evaluator = evaluator
         self.generator: Generator = generator
 
@@ -90,7 +93,7 @@ class AGoalManager(implements(IGoalManager[State, Goal])):
         # len = n_subgoals
         return self.choose_subgoal(possible_subgoals, state, goal_node)
         
-    def should_abandon(self, state: State, goal_node: Node[Goal]) -> bool:
+    def should_abandon(self, state: State, trajectory: Trajectory, goal_node: Node[Goal]) -> bool:
         """
             Returns the probability that the agent should stop pursuing its current goal.
             NOTE: it may be abandoned because it is no longer worthwhile, intractable,

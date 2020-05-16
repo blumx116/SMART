@@ -42,19 +42,22 @@ class GreedyMazeAgent:
             return self.get_random_action()
         return self.env.actions[np.argmin(distance_deltas)]
 
+    def view(self, reward: float, state: State, goal: Goal) -> None:
+        point = self.env._location #this is cheaty, but temporary
+        if array_contains(point, self.history):
+            self.n_repeats += 1
+        else:
+            self.history.append(self.env._location) 
+
+    def optimize(self) -> None:
+        pass
+
     def get_random_action(self):
         return array_random_choice(self.env.actions, self.random)
 
     def get_rand_chance(self):
         chance = self.eps * (self.n_repeats + 1)
         return np.clip(chance, 0, self.eps_max)
-
-    def observe(self, reward: float, state: State, goal: Goal) -> None:
-        point = self.env._location #this is cheaty, but temporary
-        if array_contains(point, self.history):
-            self.n_repeats += 1
-        else:
-            self.history.append(self.env._location) 
 
     def _distance(self, location: Point, goal: Goal) -> float:
         return np.sum(np.abs(location - goal)) #manhattan distance

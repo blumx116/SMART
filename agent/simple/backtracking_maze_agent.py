@@ -3,7 +3,7 @@ from typing import Set, List, NamedTuple, Iterable, Tuple
 import numpy as np
 from interface import implements
 
-from .i_simple_agent import ISimpleAgent
+from agent import IAgent
 from env.mazeworld import MazeWorld, Point, Action, Reward
 from misc.priority_queue import PriorityQueue
 from misc.utils import NumPyDict, array_equal
@@ -19,7 +19,7 @@ class Target:
 
 # Target = NamedTuple("Target", [('point', Point), ('states', List[State])]) 
 
-class BacktrackingMazeAgent(ISimpleAgent[MazeWorld, State, Action, Reward, Goal]):
+class BacktrackingMazeAgent(IAgent[MazeWorld, State, Action, Reward, Goal]):
     def __init__(self, env: MazeWorld):
         self.reset(env, None, None)
 
@@ -60,7 +60,7 @@ class BacktrackingMazeAgent(ISimpleAgent[MazeWorld, State, Action, Reward, Goal]
         else:
             return self._move_towards(self.current_target)
 
-    def observe(self, state: State, action: Action, reward: Reward) -> None:
+    def view(self, state: State, action: Action, reward: Reward) -> None:
         """
             Add the observed state to our history. If this move was a backtrack,
             then just remove the node we backtracked over instead so that we don't
@@ -74,7 +74,7 @@ class BacktrackingMazeAgent(ISimpleAgent[MazeWorld, State, Action, Reward, Goal]
         else:
             self.history.append(state)
 
-    def step(self) -> None:
+    def optimize(self) -> None:
         pass 
 
     def _are_opposite_actions(self, action1: Action, action2: Action) -> bool:

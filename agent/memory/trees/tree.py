@@ -109,6 +109,24 @@ class Tree(Generic[T]):
         return Tree._get_furthest_in_direction('right', subtree_root)
 
     @staticmethod
+    def get_root(self, node: Node[T]) -> Node[T]:
+        """
+            Gets the root of the tree containing node 'node'
+            Parameters
+            ----------
+            node: Node[T]
+                the reference node in the tree where we're searching for 
+                the root
+            Returns
+            -------
+            root: Node[T]
+                the root node
+        """
+        while node.has_relation('parent'):
+            node = node.get_relation('parent')
+        return node
+
+    @staticmethod
     def is_left_child(node: Node[T]) -> bool:
         return Tree._is_child_in_direction(node, 'left')
 

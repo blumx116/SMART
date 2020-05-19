@@ -5,7 +5,12 @@ Goal = TypeVar("Goal")
 Reward = TypeVar("Reward")
 Action = TypeVar("Action")
 Memory = TypeVar("Memory")
-Trajectory = List[Tuple[State, Action, Reward]]
+Transition = NamedTuple("Transition", [
+    ["state", State],
+    ["action", Action],
+    ["reward", Reward]])
+    
+Trajectory = List[Transition]
 
 Environment = TypeVar("Environment")
 MemoryManager = TypeVar("MemoryManager")

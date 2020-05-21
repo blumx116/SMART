@@ -1,2 +1,4 @@
 env/mazeworld/mazeworld-caches/*
 .vscode
+*.cpython.*
+*.pyc

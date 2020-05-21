@@ -20,6 +20,9 @@ class SimpleGoalManager(AGoalManager):
             fulfils_goal = array_equal
         self.fulfils_goal: Callable[[State, Goal], bool] = fulfils_goal
 
+    def goal_fulfilled(self, state: State, goal_node: Node[Goal]) -> bool:
+        pass
+
     def should_abandon(self, state: State, goal_node: Node[Goal]) -> bool:
         return False
 

@@ -1,6 +1,8 @@
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 from interface import implements
+from numpy.random import RandomState
+from scipy.stats import logistic
 from torch import Tensor
 
 from agent.goal_manager import IGoalManager
@@ -8,15 +10,41 @@ from agent.memory.trees import Node, Tree
 from agent.goal_manager.evaluator import IEvaluator
 from agent.goal_manager.generator import IGenerator
 from agent.goal_manager.memory_manager import IMemoryManager
-from misc.typevars import State, Goal, Reward, Environment
+from misc.typevars import State, Goal, Reward, Environment, Trajectory
 from misc.typevars import MemoryManager, Evaluator, Generator
+from misc.utils import optional_random, bool_random_choice
 
-Trajectory = List[Tuple[State, Action, Reward]]]
 
 class AGoalManager(implements(IGoalManager[State, Goal])):
-    def __init__(self, evaluator: IEvaluator, generator: IGenerator):
+    def __init__(self, 
+        evaluator: IEvaluator, 
+        generator: IGenerator, 
+        rand_seed: Union[int, RandomState]):
+        """
+            Parameters
+            ----------
+            evaluator: IEvaluator
+                evaluator to be used for evaluating goals
+            generator: IGenerator
+                geneator to be used for generating possible goals
+            rand_seed: Union[int, RandomState] = None
+                random seed to be used for squishing probabilities to 
+                boolean random choices
+                NOTE: generator and evaluator may have their own random seeds
+            Attributes
+            ----------
+            evaluator: IEvaluator
+                evaluator to be used for evaluating goals
+            generator: IGenerator
+                geneator to be used for generating possible goals
+            random: RandomState
+                random seed to be used for squishing probabilities to 
+                boolean random choices
+                NOTE: generator and evaluator may have their own random seeds
+        """
         self.evaluator: Evaluator = evaluator
         self.generator: Generator = generator
+        self.random: RandomState = optional_random(rand_seed)
 
     def choose_subgoal(self, possible_subgoals: List[Goal], state: State, goal_node: Node[Goal]) -> Goal:
         """
@@ -61,7 +89,7 @@ class AGoalManager(implements(IGoalManager[State, Goal])):
             action: Action
             reward: Reward
         """
-        self.memory_manager.view(state, action, reward)
+        pass
 
     def reset(self, env: Environment, goal: Goal) -> None:
         """
@@ -72,7 +100,6 @@ class AGoalManager(implements(IGoalManager[State, Goal])):
             goal: Goal
                 the final goal that the agent is trying to achieve in the environment
         """
-        self.memory_manager.reset(env, goal)
         self.evaluator.reset(env, goal)
         self.generator.reset(env, goal)
 
@@ -93,7 +120,7 @@ class AGoalManager(implements(IGoalManager[State, Goal])):
         # len = n_subgoals
         return self.choose_subgoal(possible_subgoals, state, goal_node)
         
-    def should_abandon(self, state: State, trajectory: Trajectory, goal_node: Node[Goal]) -> bool:
+    def should_abandon(self, trajectory: Trajectory, state: State, goal_node: Node[Goal]) -> bool:
         """
             Returns the probability that the agent should stop pursuing its current goal.
             NOTE: it may be abandoned because it is no longer worthwhile, intractable,
@@ -122,12 +149,23 @@ class AGoalManager(implements(IGoalManager[State, Goal])):
         """
         pass 
 
-    def step(self) -> None:
+    def optimizer(self, samples: List[TrainBatch]) -> None:
         """
             Runs one step of the optimizer for all machine learning modules
         """
         self.evaluator.step(self.memory_manager)
         self.generator.step(self.memory_manager)
+
+    def _sigmoid_sample(value: float, squish: bool = True) -> bool:
+        """
+            if squish, applies sigmoid on value to apply sigmoid function
+            to squish it to [0, 1] range. The selects true with that probability
+        """
+        if squish:
+            probability: float = logistic.cdf(value)
+        else:
+            probability: float = value
+        return bool_random_choice(probability, rand_seed=self.random)
 
     def _observe_add_subgoal(self, subgoal_node: Node[Goal], existing_goal_node: Node[Goal]) -> None:
         """

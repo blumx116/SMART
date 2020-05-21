@@ -1,9 +1,12 @@
 from typing import TypeVar
 
+from numpy.random import RandomState
+
 from agent.memory.trees import Tree, Node
 from agent.goal_manager import IGoalManager
 from misc.typevars import State, Goal, Reward, Action
 from misc.typevars import GoalBasedAgent, Environment
+from misc.utils import bool_random_choice, optional_random
 
 Environment = Environment[State, Action, Reward, Goal]
 
@@ -21,8 +24,23 @@ class SMARTAgent(Generic[State, Goal, Action, Reward, Environment]):
                 manages turning goals in to actions
             memory: IMemory
                 keeps a record of previous observations
+            Attributes
+            ----------
+            goal_manager: IGoalManager[State, Goal]
+                manages choosing, abandoning and planning goals
+            low_level_agent: IAgent,
+                manages turning goals in to actions
+            memory: IMemory
+                keeps a record of previous observations
+            current_goal: Node[Goal]
+                the current goal being pursued
+            actionable_goal: Node[Goal] or None
+                either current goal or None, depending on whether or not
+                current goal is actionable
+            terminal_goal: Node[Goal]
+                the highest level goal for the agent to pursue
         """
-        self.goal_manager: IGoalManager = goal_manager
+        self.goal_manager: IGoalManager[State, Goal] = goal_manager
         self.low_level_agent = low_level_agent
         self.memory: IMemory = memory
 
@@ -33,6 +51,7 @@ class SMARTAgent(Generic[State, Goal, Action, Reward, Environment]):
     def reset(self, env: Environment, state: State, goal: Goal) -> None:
         self.goal_manager.reset(env, state, goal)
         self.low_level_agent.reset(env, state, goal)
+        self.memory.reset(env, state, goal)
 
         self._terminal_goal = Node(goal)
         self._current_goal = self._terminal_goal
@@ -84,9 +103,10 @@ class SMARTAgent(Generic[State, Goal, Action, Reward, Environment]):
 
     def _should_abandon(self, state: State, goal_node: Node[Goal]) -> bool:
         if self._goal_equal(goal_node, self._terminal_goal):
-            return False # can't abandon terminal goal  
-
-
+            return False # can't abandon terminal goal
+        return self.goal_manager.should_abandon(
+                trajectory=self.memory.get_trajectory(goal_node),
+                state=state, goal=goal_node)
 
     @property
     def _current_goal(self) -> Node[Goal]:
@@ -113,7 +133,6 @@ class SMARTAgent(Generic[State, Goal, Action, Reward, Environment]):
     @_terminal_goal.setter
     def _terminal_goal(self, value: Node[Goal]) -> None:
         self.__terminal_goal = value 
-        return self.goal_manager.should_abandon(state, goal_node)
 
     def _announce_add_subgoal(self, subgoal_node: Node[Goal], existing_goal_node: Node[Goal]) -> None:
         self.goal_manager._observe_add_subgoal(subgoal_node, existing_goal_node)

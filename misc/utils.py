@@ -2,7 +2,7 @@ import os
 from typing import List, Iterable, TypeVar, Union, Tuple, Generic
 
 import numpy as np
-from np.random import RandomState
+from numpy.random import RandomState
 
 T = TypeVar("T")
 V = TypeVar("V")
@@ -175,7 +175,7 @@ def bool_random_choice(probability: float, rand_seed: Union[int, RandomState] = 
         -------
         choice: bool
             True or False, chosen randomly
-        """"
+        """
     assert 0 <= probability <= 1
     random: RandomState = optional_random(rand_seed)
     return random.uniform() < probability

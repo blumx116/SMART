@@ -3,7 +3,7 @@ from typing import Generic
 from interface import Interface
 
 from misc.typevars import State, Action, Reward, Goal
-class IObservation(Interface, Generic[State, Action, Reward, Goal]):
+class IObservation(Generic[State, Action, Reward, Goal]):
     def __init__(self, initial_state: State, goal: Goal):
         pass 
 

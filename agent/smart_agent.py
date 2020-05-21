@@ -1,14 +1,14 @@
-from typing import TypeVar
+from typing import TypeVar, Generic
 
 from numpy.random import RandomState
 
-from agent.memory.trees import Tree, Node
+from agent import IAgent
 from agent.goal_manager import IGoalManager
+from agent.memory import IMemory
+from agent.memory.trees import Tree, Node
 from misc.typevars import State, Goal, Reward, Action
-from misc.typevars import GoalBasedAgent, Environment
+from misc.typevars import Environment
 from misc.utils import bool_random_choice, optional_random
-
-Environment = Environment[State, Action, Reward, Goal]
 
 class SMARTAgent(Generic[State, Goal, Action, Reward, Environment]):
     def __init__(self, 

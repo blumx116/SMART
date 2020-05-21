@@ -1,14 +1,15 @@
 import math
-from typing import List, Tuple
+from typing import List, Tuple, Union 
 
 import numpy as np 
 import torch
 import torch.nn as nn 
 import torch.optim as optim 
 
-from agent.goal_manager.memory_manager import IMemoryManager
+from agent.memory import IMemory
 from agent.memory.trees import Node
-from misc.typevars import State, Goal 
+from misc.typevars import State, Goal
+from env.mazeworld import MazeWorld
 
 class GridworldEvaluator:
     def __init__(self, xdim:int, ydim:int, device):
@@ -92,10 +93,10 @@ class GridworldEvaluator:
         probabilities: np.ndarray = self.selection_probabilities(possible_subgoals, scores, state, goal_node.value)
         return np.random.choice(range(len(probabilities)), p=probabilities), scores
 
-    def reset(self, env: Environment, goal: Goal) -> None:
+    def reset(self, env: MazeWorld, goal: Goal) -> None:
         self.context = torch.from_numpy(env._grid).float().to(self.device)
 
-    def step(self, memory_manager: IMemoryManager) -> None:
+    def step(self, memory_manager: IMemory) -> None:
         if len(memory_manager) == 0:
             return
         truths: List[float] = []

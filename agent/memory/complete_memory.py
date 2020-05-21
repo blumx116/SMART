@@ -1,4 +1,4 @@
-from typing import Dict, NamedTuple
+from typing import Dict, NamedTuple, Union, List
 
 from interface import implements
 import numpy as np
@@ -7,20 +7,13 @@ from numpy.random import RandomState
 from .i_memory import IMemory
 from .observations import CompleteObservation 
 from misc.typevars import State, Action, Reward, Goal, Trajectory, Transition
-from misc.typevars import Trajectory
+from misc.typevars import Trajectory, TrainSample, Environment
 from misc.utils import NumPyDict, flatmap, optional_random, array_random_choice
 from agent.memory.trees import Node, Tree
 
-TrainSample = NamedTuple("TrainSample", [
-    ["initial_state", State],
-    ["subgoal_trajectory", Trajectory],
-    ["subgoal", Goal],
-    ["goal_trajectory", Trajectory],
-    ["goal", Goal],
-    ["terminal_state", State]])
 
-class EpisodeMemory:
-    def __init__(self), rand_seed: Union[int, RandomState] = None):
+class EpisodeMemory(IMemory[State, Action, Reward, Goal]):
+    def __init__(self, rand_seed: Union[int, RandomState] = None):
         """
             Parameters
             ----------
@@ -44,7 +37,7 @@ class EpisodeMemory:
                 ordered list of all goals that have parents in memory
         """
         self.random: RandomState = optional_random(rand_seed)
-        self.trajectory_for = Dict[Node[Goa], Trajectory]] = { } 
+        self.trajectory_for: Dict[Node[Goa], Trajectory] = { } 
         self.current_goal: Node[Goal] = None
         self.num_obs: int = 0
         self.cached_goal_list: List[Node[Goal]] = [ ] 
@@ -224,7 +217,7 @@ class EpisodeMemory:
                 terminal_state=self.get_terminal_state(goal)))
         return result
 
-class CompleteMemory(implements(IMemory[State, Action, Reward, Goal, Environment])):
+class CompleteMemory(IMemory[State, Action, Reward, Goal]):
     def __init__(self, max_length: int = None, rand_seed: Union[int, RandomState] = None):
         """
             Parameters

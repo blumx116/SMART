@@ -1,19 +1,24 @@
-from typing import List
+from typing import List, Union
 
 import numpy as np
+from numpy.random import RandomState
 
 from .a_goal_manager import AGoalManager
 from agent.goal_manager.evaluator import IEvaluator
 from agent.goal_manager.generator import IGenerator
-from agent.goal_manager.memory_manager import IMemoryManager
+from agent.memory import IMemory
 from agent.memory.trees import Node
-from misc.typevars import State, Goal
+from misc.typevars import State, Action, Reward, Goal, Environment
 from misc.utils import NumPyDict
 
 class UtilitarianGoalManager(AGoalManager):
-    def __init__(self, memory_manager: IMemoryManager, evaluator: IEvaluator,
-        generator: IGenerator, abandon_tolerance_mult: float, plan_tolerance_mult: float):
-        super().__init__(memory_manager, evaluator, generator)
+    def __init__(self, 
+            evaluator: IEvaluator,
+            generator: IGenerator, 
+            abandon_tolerance_mult: float, 
+            plan_tolerance_mult: float,
+            rand_seed: Union[int, RandomState] = None):
+        super().__init__(evaluator, generator, rand_seed)
         self.abandon_tolerance_mult: float = abandon_tolerance_mult
         self.plan_tolerance_mult: float = plan_tolerance_mult
         self.tolerable_reward: NumPyDict[Goal, Reward] = None

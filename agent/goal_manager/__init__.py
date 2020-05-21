@@ -1,2 +1,4 @@
-from .IGoalManager import IGoalManager
-from .GoalManager import GoalManager
+from .i_goal_manager import IGoalManager
+from .a_goal_manager import AGoalManager
+from .simple_goal_manager import SimpleGoalManager
+from .utilitarian_goal_manager import UtilitarianGoalManager

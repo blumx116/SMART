@@ -1,11 +1,9 @@
 from typing import Generic, TypeVar, List, Tuple
 
-from interface import Interface
-
 from agent.memory.trees import Tree, Node 
 from misc.typevars import State, Goal, Reward, Environment, Action, Trajectory
 
-class IGoalManager(Interface, Generic[State, Goal]):
+class IGoalManager(Generic[State, Goal]):
     def view(self, state: State, action: Action, reward: Reward) -> None:
         pass
 
@@ -32,3 +30,4 @@ class IGoalManager(Interface, Generic[State, Goal]):
 
     def _observe_set_current_goal(self, goal_node: Node[Goal]) -> None:
         pass
+    

@@ -9,13 +9,12 @@ from agent.goal_manager import IGoalManager
 from agent.memory.trees import Node, Tree
 from agent.goal_manager.evaluator import IEvaluator
 from agent.goal_manager.generator import IGenerator
-from agent.goal_manager.memory_manager import IMemoryManager
-from misc.typevars import State, Goal, Reward, Environment, Trajectory
-from misc.typevars import MemoryManager, Evaluator, Generator
+from agent.memory import IMemory
+from misc.typevars import State, Action, Reward, Goal, Environment, Trajectory, TrainSample
 from misc.utils import optional_random, bool_random_choice
 
 
-class AGoalManager(implements(IGoalManager[State, Goal])):
+class AGoalManager(IGoalManager[State, Goal]):
     def __init__(self, 
         evaluator: IEvaluator, 
         generator: IGenerator, 
@@ -149,7 +148,7 @@ class AGoalManager(implements(IGoalManager[State, Goal])):
         """
         pass 
 
-    def optimizer(self, samples: List[TrainBatch]) -> None:
+    def optimizer(self, samples: List[TrainSample]) -> None:
         """
             Runs one step of the optimizer for all machine learning modules
         """

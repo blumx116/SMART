@@ -1,9 +1,10 @@
-from typing import 
+from typing import Union, Callable
+
+from numpy.random import RandomState
 
 from .a_goal_manager import AGoalManager
 from agent.goal_manager.evaluator import IEvaluator
 from agent.goal_manager.generator import IGenerator
-from agent.goal_manager.memory_manager import IMemoryManager
 from agent.memory.trees import Node
 from misc.typevars import State, Goal 
 from misc.utils import array_equal
@@ -13,8 +14,9 @@ class SimpleGoalManager(AGoalManager):
             evaluator: IEvaluator, 
             generator: IGenerator,
             max_depth: int, 
-            fulfils_goal: Callable[[State, Goal], bool] = None):
-        super().__init__(evaluator, generator)
+            fulfils_goal: Callable[[State, Goal], bool] = None,
+            rand_seed: Union[int, RandomState] = None):
+        super().__init__(evaluator, generator, rand_seed)
         self.max_depth: int = max_depth
         if fulfils_goal is None:
             fulfils_goal = array_equal

@@ -90,7 +90,7 @@ class AGoalManager(IGoalManager[State, Goal]):
         """
         pass
 
-    def reset(self, env: Environment, goal: Goal) -> None:
+    def reset(self, env: Environment, state: State, goal: Goal) -> None:
         """
             To be called before the start of each new episode. Used to clear memory,
             update knowledge of environment parameters, etc.
@@ -148,12 +148,12 @@ class AGoalManager(IGoalManager[State, Goal]):
         """
         pass 
 
-    def optimizer(self, samples: List[TrainSample]) -> None:
+    def optimize(self, samples: List[TrainSample]) -> None:
         """
             Runs one step of the optimizer for all machine learning modules
         """
-        self.evaluator.step(self.memory_manager)
-        self.generator.step(self.memory_manager)
+        self.evaluator.optimize(samples)
+        self.generator.optimize(samples)
 
     def _sigmoid_sample(value: float, squish: bool = True) -> bool:
         """
@@ -165,15 +165,3 @@ class AGoalManager(IGoalManager[State, Goal]):
         else:
             probability: float = value
         return bool_random_choice(probability, rand_seed=self.random)
-
-    def _observe_add_subgoal(self, subgoal_node: Node[Goal], existing_goal_node: Node[Goal]) -> None:
-        """
-            Observes the addition of each subgoal. Used for 
-        """
-        self.memory_manager._observe_add_subgoal(subgoal_node, existing_goal_node)
-
-    def _observe_abandon_goal(self, goal_node: Node[Goal]) -> None:
-        self.memory_manager._observe_abandon_goal(goal_node)
-
-    def _observe_set_current_goal(self, goal_node: Node[Goal]) -> None:
-        self.memory_manager._observe_abandon_goal(goal_node)

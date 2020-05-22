@@ -65,13 +65,21 @@ class EpisodeMemory(IMemory[State, Action, Reward, Goal]):
 
     @property
     def num_goals(self):
-        return len(self.trajectories_for)
+        return len(self.trajectory_for)
 
     def _observe_set_current_goal(self, goal_node: Node[Goal]) -> None:
         self.current_goal = goal_node
-        if self.current_goal not in self.trajectory_for:
-            self.trajectory_for[self.current_goal] = [ ]
+        self._add_goal_node(goal_node)
+
+    def _observe_add_subgoal(self, subgoal_node: Node[Goal], existing_goal_node: Node[Goal]) -> None:
+        self._add_goal_node(subgoal_node)
+
+    def _add_goal_node(self, goal_node: Node[Goal]) -> None:
+        if goal_node not in self.trajectory_for:
+            self.trajectory_for[goal_node] = [ ]
             self._update_caches()
+
+
 
     def _update_caches(self) -> None:
         """
@@ -110,7 +118,7 @@ class EpisodeMemory(IMemory[State, Action, Reward, Goal]):
         cur_node: Node[Goal] = goal_node 
         result: List[Node[Goal]] = [ ] 
         while cur_node is not None and cur_node.depth >= min_depth:
-            result = cur_node + result
+            result = [cur_node] + result
             cur_node = Tree.get_next_left(cur_node)
         return result
 
@@ -178,7 +186,7 @@ class EpisodeMemory(IMemory[State, Action, Reward, Goal]):
                 the trajectory observed while pursuing goal_node and associated subgoals.
                 empty list if the goal was abandoned immediately
         """
-        subgoals: List[Node[Goal]] = CompleteMemory.get_subgoals(goal_node)
+        subgoals: List[Node[Goal]] = self.get_subgoals(goal_node)
         trajectories: List[Trajectory] = list(map(
             lambda node: self.trajectory_for[node],
             subgoals))
@@ -318,7 +326,7 @@ class CompleteMemory(IMemory[State, Action, Reward, Goal]):
         result: List[TrainSample] = [ ]
         for _ in range(count):
             episode: EpisodeMemory = self.random.choice(self.history)
-            result += episode.sample_batch(count)
+            result += episode.sample_batch(1)
         return result
 
     def get_trajectory(self, goal_node: Node[Goal]) -> Trajectory:
@@ -347,3 +355,6 @@ class CompleteMemory(IMemory[State, Action, Reward, Goal]):
 
     def _observe_set_current_goal(self, goal_node: Node[Goal]) -> None:
         self.current_episode._observe_set_current_goal(goal_node)
+
+    def _observe_add_subgoal(self, subgoal_node: Node[Goal], existing_goal_node: Node[Goal]) -> None:
+        self.current_episode._observe_add_subgoal(subgoal_node, existing_goal_node)

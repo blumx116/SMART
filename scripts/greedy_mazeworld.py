@@ -31,7 +31,7 @@ for seed in range(50):
         action = agent.act(state, goal)
         state, reward, done, info = env.step(action)
         states.append(state)
-        agent.observe(state, action, reward)
+        agent.view(state, action, reward)
         print(env._location)
 
     def render(env: MazeWorld, state: State):

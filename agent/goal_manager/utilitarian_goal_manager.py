@@ -23,8 +23,8 @@ class UtilitarianGoalManager(AGoalManager):
         self.plan_tolerance_mult: float = plan_tolerance_mult
         self.tolerable_reward: NumPyDict[Goal, Reward] = None
 
-    def reset(self, env: Environment, goal: Goal) -> None:
-        super().reset(env, goal)
+    def reset(self, env: Environment, state: State, goal: Goal) -> None:
+        super().reset(env, state, goal)
         self.tolerable_reward: NumPyDict[Goal, Reward] = NumPyDict(dtype=float)
 
     def choose_subgoal(self, possible_subgoals: List[Goal], state: State, goal_node: Node[Goal]) ->  Goal:

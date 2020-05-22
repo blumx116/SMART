@@ -20,7 +20,7 @@ class Tree(Generic[T]):
             node: the immediately node to the right of the new one in ordering
             returns : the new node
         """
-        return Tree._add_direction(value, 'left', node)
+        return Tree._add_direction_(value, 'left', node)
 
     @staticmethod
     def add_right(value: T, node: Node[T]) -> Node[T]:
@@ -30,7 +30,7 @@ class Tree(Generic[T]):
             node: the node immediately to the left of the new one in ordering
             returns : the new node
         """
-        return Tree._add_direction(value, 'right', node)
+        return Tree._add_direction_(value, 'right', node)
 
         
     @staticmethod
@@ -76,7 +76,7 @@ class Tree(Generic[T]):
         return Tree._get_furthest_in_direction('left', subtree_root)
 
     @staticmethod
-    def get_next_left(self,  node: Node[T]) -> Node[T]:
+    def get_next_left(node: Node[T]) -> Node[T]:
         """
             Gets the rightmost node that is left of the node 'node'
             If these were numbers, then it would be the greatest number 
@@ -84,7 +84,7 @@ class Tree(Generic[T]):
             node: the node immediately to the right of the returned node
             returns : the next value to the left, root if not found
         """
-        return self._get_next_in_direction_('left', node)
+        return Tree._get_next_in_direction_('left', node)
 
     @staticmethod
     def get_next_right(node: Node[T]) -> Node[T]:
@@ -95,10 +95,10 @@ class Tree(Generic[T]):
             node: the node immediately to the left of the returned node
             returns : the next value to the right, root if not found
         """
-        return Tree._get_next_in_direction('left', node)
+        return Tree._get_next_in_direction_('right', node)
 
     @staticmethod
-    def get_rightmost(self, subtree_root: Node[T]) -> Node[T]:
+    def get_rightmost(subtree_root: Node[T]) -> Node[T]:
         """
             Gets the rightmost node in the tree rooted at subtree_root.
             May return subtree_root itself. If subtree_root not provided,
@@ -109,7 +109,7 @@ class Tree(Generic[T]):
         return Tree._get_furthest_in_direction('right', subtree_root)
 
     @staticmethod
-    def get_root(self, node: Node[T]) -> Node[T]:
+    def get_root(node: Node[T]) -> Node[T]:
         """
             Gets the root of the tree containing node 'node'
             Parameters
@@ -153,7 +153,7 @@ class Tree(Generic[T]):
 
     @staticmethod
     def list_subtree_nodes(root: Node[T], direction: str) -> List[Node[T]]:
-        direction = Tree._parse_direction(direction)
+        direction = Tree._parse_direction_(direction)
         return Tree.list_nodes(root.get_relation(direction)) if root.has_relation(direction) else []
 
     @staticmethod
@@ -181,7 +181,7 @@ class Tree(Generic[T]):
 
     @staticmethod
     def subtree_size(node: Node[T], direction: str) -> int:
-        direction = Tree._parse_direction(direction)
+        direction = Tree._parse_direction_(direction)
         if node.has_relation(direction):
             return node.get_relation(direction).size
         else:
@@ -198,7 +198,7 @@ class Tree(Generic[T]):
             'node': the 'node' to add to the left or right of, doesn't need to have free spots
             returns : the newly created node
         """
-        other: str = Tree._opposite_direction(direction)
+        other: str = Tree._opposite_direction_(direction)
         if not node.has_relation(direction): #if you can add directly to left or right, do so
             return node.add_relation(value, direction)
         else:
@@ -206,7 +206,7 @@ class Tree(Generic[T]):
             while node.has_relation(other): #go as far as you can back
                 node = node.get_relation(other)
             result: Node[T] = node.add_relation(value, other) #and add
-            Tree._propagate_tree_size(result) #update tree size
+            Tree._propagate_tree_size_(result) #update tree size
             return result
 
     @staticmethod
@@ -236,7 +236,7 @@ class Tree(Generic[T]):
             node: the node to search from the left or right of
             returns : the next node found after searching in that direction
         """
-        other: str = Tree._opposite_direction(direction)
+        other: str = Tree._opposite_direction_(direction)
 
         #Case 1: Search down the tree
         #Example : direction = left, we want the rightmost element of the
@@ -253,7 +253,7 @@ class Tree(Generic[T]):
         else:
             while node != None:
                 parent: Node[T] = node.get_relation('parent')
-                if parent.get_relation(other) == node:
+                if parent is not None and parent.get_relation(other) == node:
                     return parent
                 else:
                     node = parent
@@ -267,7 +267,7 @@ class Tree(Generic[T]):
 
     @staticmethod
     def _opposite_direction_(direction: str) -> str:
-        direction = Tree._parse_direction(direction)
+        direction = Tree._parse_direction_(direction)
         return'left' if direction == 'right' else 'right'
 
     @staticmethod

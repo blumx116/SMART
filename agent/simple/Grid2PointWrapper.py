@@ -19,10 +19,10 @@ class Grid2PointWrapper(IAgent[MazeWorld, State, Action, Reward, Goal]):
         return self.inner.act(self._convert_state(state), self._convert_goal(goal))
 
     def view(self, state: State, action: Action, reward: Reward) -> None:
-        return self.inner.observe(self._convert_state(state), action, reward)
+        return self.inner.view(self._convert_state(state), action, reward)
 
     def optimize(self) -> None:
-        self.inner.step()
+        self.inner.optimize()
 
     def _convert_state(self, state: State) -> Point:
         assert self.env is not None

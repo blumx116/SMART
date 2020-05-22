@@ -20,13 +20,13 @@ class Node(Generic[T]):
 
     def add_relation(self, value: T, attr: str) -> "Node[T]":
         assert Node._is_valid_relation(attr)
-        assert not self._has_relation_(attr)
+        assert not self.has_relation(attr)
         setattr(self, attr, Node(value, self))
-        return self._get_relation_(attr)
+        return self.get_relation(attr)
 
     def has_relation(self, attr: str) -> "Node[T]":
         assert Node._is_valid_relation(attr)
-        return self._get_relation_(attr) is None
+        return self.get_relation(attr) is not None
 
     def get_relation(self, attr: str) -> "Node[T]":
         assert Node._is_valid_relation(attr)

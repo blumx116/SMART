@@ -1,5 +1,6 @@
 from typing import TypeVar, Generic
 
+import numpy as np
 from numpy.random import RandomState
 
 from agent import IAgent
@@ -9,6 +10,9 @@ from agent.memory.trees import Tree, Node
 from misc.typevars import State, Goal, Reward, Action
 from misc.typevars import Environment
 from misc.utils import bool_random_choice, optional_random
+
+# DEBUG
+amax = lambda s: np.unravel_index(np.argmax(s[:,:,-1]), s[:,:,-1].shape)
 
 class SMARTAgent(Generic[State, Goal, Action, Reward, Environment]):
     def __init__(self, 
@@ -53,6 +57,8 @@ class SMARTAgent(Generic[State, Goal, Action, Reward, Environment]):
         self.low_level_agent.reset(env, state, goal)
         self.memory.reset(env, state, goal)
 
+        print(f"reset: {amax(state)}=>{amax(goal)}")
+
         self._terminal_goal = Node(goal)
         self._current_goal = self._terminal_goal
         self._actionable_goal = None
@@ -63,7 +69,8 @@ class SMARTAgent(Generic[State, Goal, Action, Reward, Environment]):
             cur_goal = self._abandon_goal(cur_goal)
         if not self._is_actionable(cur_goal):
             cur_goal = self._plan(state, cur_goal)
-        return self.low_level.act(state, cur_goal.value)
+        print(f"act: subgoal={amax(cur_goal.value)}")
+        return self.low_level_agent.act(state, cur_goal.value)
 
     def view(self, state: State, action: Action, reward: Reward) -> None:
         self.goal_manager.view(state, action, reward)
@@ -71,15 +78,15 @@ class SMARTAgent(Generic[State, Goal, Action, Reward, Environment]):
         self.memory.view(state, action, reward)
 
     def optimize(self) -> None:
-        self.goal_manager.optimize(self.memory)
+        self.goal_manager.optimize(self.memory.sample_batch(10))
         self.low_level_agent.optimize()
 
     def _abandon_goal(self, goal_node: Node[Goal]) -> Node[Goal]:
-        assert self._goal_equal(goal_node, self._current_goal())
-        assert not self._goal_equal(goal_node, self._terminal_goal())
+        assert self._goal_equal(goal_node, self._current_goal)
+        assert not self._goal_equal(goal_node, self._terminal_goal)
 
         self._announce_abandon_goal(goal_node)
-        self._current_goal = Tree.next_right(goal_node)
+        self._current_goal = Tree.get_next_right(goal_node)
         return self._current_goal
 
     def _add_subgoal(self, subgoal: Goal, existing_goal_node: Node[Goal]) -> Node[Goal]:
@@ -95,6 +102,7 @@ class SMARTAgent(Generic[State, Goal, Action, Reward, Environment]):
 
     def _plan(self, state: State, existing_goal: Node[Goal]) -> Node[Goal]:
         if self._should_terminate_planning(state, existing_goal):
+            self._current_goal = existing_goal
             self._actionable_goal = existing_goal
             return self._actionable_goal
         subgoal: Goal = self.goal_manager.select_next_subgoal(state, existing_goal) 
@@ -106,7 +114,10 @@ class SMARTAgent(Generic[State, Goal, Action, Reward, Environment]):
             return False # can't abandon terminal goal
         return self.goal_manager.should_abandon(
                 trajectory=self.memory.get_trajectory(goal_node),
-                state=state, goal=goal_node)
+                state=state, goal_node=goal_node)
+
+    def _should_terminate_planning(self, state: State, goal_node: Node[Goal]) -> None:
+        return self.goal_manager.should_terminate_planning(state, goal_node)
 
     @property
     def _current_goal(self) -> Node[Goal]:
@@ -135,10 +146,21 @@ class SMARTAgent(Generic[State, Goal, Action, Reward, Environment]):
         self.__terminal_goal = value 
 
     def _announce_add_subgoal(self, subgoal_node: Node[Goal], existing_goal_node: Node[Goal]) -> None:
+        toprint: Node[Goal] = subgoal_node
+        print("========adding subgoal============")
+        while toprint is not None:
+            print(amax(toprint.value))
+            toprint = Tree.get_next_right(toprint)
+        print("===================================")
+        self.memory._observe_add_subgoal(subgoal_node, existing_goal_node)
         self.goal_manager._observe_add_subgoal(subgoal_node, existing_goal_node)
 
     def _announce_abandon_goal(self, goal_node: Node[Goal]) -> None:
         self.goal_manager._observe_abandon_goal(goal_node)
 
     def _announce_set_current_goal(self, goal_node: Node[Goal]) -> None:
+        self.memory._observe_set_current_goal(goal_node)
         self.goal_manager._observe_set_current_goal(goal_node)
+
+    def _announce_set_actionable_goal(self, goal_node: Node[Goal]) -> None:
+        pass

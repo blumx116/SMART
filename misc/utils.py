@@ -106,7 +106,7 @@ def array_contains(el: T, elems: Iterable[T]) -> bool:
             whether or not el was present in elems
         
     """
-    for element in list:
+    for element in elems:
         if array_equal(el, element):
             return True
     return False

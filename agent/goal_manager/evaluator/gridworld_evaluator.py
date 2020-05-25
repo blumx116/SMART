@@ -12,6 +12,8 @@ from env.mazeworld import MazeWorld
 from misc.typevars import State, Goal, Trajectory, TrainSample
 from misc.utils import array_equal
 
+# DEBUG
+amax = lambda s: np.unravel_index(np.argmax(s[:,:,-1]), s[:,:,-1].shape)
 
 class GridworldEvaluator:
     def __init__(self, xdim:int, ydim:int, device: torch.device, gamma: float):
@@ -21,10 +23,10 @@ class GridworldEvaluator:
         assert 0 < gamma <= 1
         self.gamma: float = gamma 
 
-        conv_channels1 = 7
+        conv_channels1 = 20
         conv_size1 = 3
         maxpool_size1 = 2
-        conv_channels2 = 3
+        conv_channels2 = 15
         conv_size2 = 3
 
         #equation from https://pytorch.org/docs/stable/nn.html#torch.nn.Conv2d
@@ -42,8 +44,10 @@ class GridworldEvaluator:
             nn.MaxPool2d(maxpool_size1),
             nn.Conv2d(conv_channels1, conv_channels2, conv_size2),
             nn.Flatten(),
+            nn.LayerNorm(hidden_input),
             nn.Linear(hidden_input, 50),
             nn.LeakyReLU(0.1),
+            nn.LayerNorm(50),
             nn.Linear(50, 1)).to(self.device)
 
         self.target: nn.Sequential = nn.Sequential(
@@ -51,8 +55,10 @@ class GridworldEvaluator:
             nn.MaxPool2d(maxpool_size1),
             nn.Conv2d(conv_channels1, conv_channels2, conv_size2),
             nn.Flatten(),
+            nn.LayerNorm(hidden_input),
             nn.Linear(hidden_input, 50),
             nn.LeakyReLU(0.1),
+            nn.LayerNorm(50),
             nn.Linear(50, 1)).to(self.device)
 
         self.optimizer = optim.SGD(self.inner.parameters(), lr=1e-3)
@@ -77,7 +83,8 @@ class GridworldEvaluator:
         # torch.Tensor[float, device] : [y_dim, x_dim, 2]
         input = torch.cat((self.context, input), dim=2)
         # torch.Tensor[float, device] : [y_dim, x_dim, 4]
-        input = input.permute((2, 0, 1)).unsqueeze(0)
+        input = input.permute((2, 0, 1)).unsqueeze(0).contiguous()
+        # receive CUDNN_STATUS_NOT_SUPPORTED error if remove contiguous
         # torch.Tensor[float, device] : [1, 4, y_dim, x_dim]
 
         network: nn.Module = self.get_network(network)
@@ -167,11 +174,16 @@ class GridworldEvaluator:
                             sample=sample, 
                             network='target'))
             """
+        print("==================={step}================")
+        for sample in samples:
+            print(f"sample: {amax(sample.initial_state)}=>{amax(sample.goal.value)} (len: {len(sample.subgoal_trajectory)+len(sample.goal_trajectory)})")
         truths: torch.Tensor = torch.cat(truths)
         preds: torch.Tensor = torch.cat(preds)
+        print(f"truths: {truths}")
+        print(f"preds: {preds}")
         # torch.Tensor[float, device] : [len(samples), ]
         loss = self.loss(preds, truths)
-        print(loss)
+        print(f"loss: {loss}")
         loss.backward()
         self.optimizer.step()
         self.optimizer.zero_grad()
@@ -187,4 +199,6 @@ class GridworldEvaluator:
         preds: torch.Tensor = torch.cat(preds)
         loss = self.loss(preds, truths)
         self.optimizer.zero_grad()
-        print(loss)
+        print(f"new preds: {preds}")
+        print(f"new loss: {loss}")
+        print("==============={end step}=====================")

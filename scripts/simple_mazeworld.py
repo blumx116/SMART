@@ -21,7 +21,6 @@ generator = MazeWorldGenerator(YDIMS, XDIMS, 2,  100, 10)
 cache = MazeWorldCache(generator)
 global env
 env = MazeWorld(cache._get_cached_board(0))
-
 device: torch.device = torch.device("cuda:0")
 
 fig = plt.figure() 

@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import numpy as np
 import torch 
+import torchvision
+from torch.utils.tensorboard import SummaryWriter
 
 from agent.simple import BacktrackingMazeAgent, Grid2PointWrapper
 from agent import SMARTAgent, IAgent
@@ -14,7 +16,7 @@ from agent.memory import IMemory, CompleteMemory
 from env.mazeworld import MazeWorldCache, MazeWorldGenerator, MazeWorld, State
 from misc.utils import array_equal
 
-
+writer: SummaryWriter = SummaryWriter()
 YDIMS = 10
 XDIMS = 10
 generator = MazeWorldGenerator(YDIMS, XDIMS, 2,  100, 10)
@@ -35,8 +37,11 @@ goal_manager: IGoalManager = SimpleGoalManager(evaluator, generator, 2, fulfils_
 memory: IMemory = CompleteMemory(100, 3)
 agent = SMARTAgent(goal_manager, low_level_agent, memory)
 
+totals = [] 
+
 
 for seed in [0] * 500:
+    total_reward: int = 0
     print(f"================={seed}=================")
     env= MazeWorld(cache._get_cached_board(seed))
 
@@ -49,11 +54,15 @@ for seed in [0] * 500:
         print('step')
         action = agent.act(state)
         state, reward, done, info = env.step(action)
+        total_reward += reward
         states.append(state)
         agent.view(state, action, reward)
         print(env._location)
 
         agent.optimize()
+
+    writer.add_scalar('reward', total_reward)
+    totals.append(total_reward)
 
     def render(env: MazeWorld, state: State):
         grid: np.ndarray = env._grid

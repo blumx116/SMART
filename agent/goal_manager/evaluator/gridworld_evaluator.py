@@ -22,6 +22,7 @@ class GridworldEvaluator:
         self.loss: nn.modules.loss = nn.MSELoss()
         assert 0 < gamma <= 1
         self.gamma: float = gamma 
+        self.beta: float = 0
 
         conv_channels1 = 20
         conv_size1 = 3
@@ -120,7 +121,7 @@ class GridworldEvaluator:
 
     def selection_probabilities(self, subgoals: List[Goal], scores: np.ndarray, 
         state: State, goal: Goal) -> np.ndarray:
-        weights: np.ndarray = np.exp(scores)
+        weights: np.ndarray = np.exp(scores * self.beta) + 0.0001
         return weights / weights.sum()
 
     def choose_subgoal(self, 
@@ -153,6 +154,7 @@ class GridworldEvaluator:
     def optimize(self, samples: List[TrainSample]) -> None:
         if samples is None or len(samples) == 0:
             return
+        self.beta += 0.01
         truths: List[torch.Tensor] = [ ]
         preds: List[torch.Tensor] = [ ]
         for sample in samples:

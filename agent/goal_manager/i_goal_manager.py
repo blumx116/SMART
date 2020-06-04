@@ -20,7 +20,7 @@ class IGoalManager(Generic[State, Goal]):
     def should_terminate_planning(self, state: State, goal_node: Node[Goal]) -> float:
         pass 
 
-    def optimize(self, samples: List[TrainSample]) -> None:
+    def optimize(self, samples: List[TrainSample], step: int = None) -> None:
         pass
 
     def _observe_add_subgoal(self, subgoal_node: Node[Goal], existing_goal_node: Node[Goal]) -> None:

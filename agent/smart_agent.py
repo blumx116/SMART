@@ -77,8 +77,8 @@ class SMARTAgent(Generic[State, Goal, Action, Reward, Environment]):
         self.low_level_agent.view(state, action, reward)
         self.memory.view(state, action, reward)
 
-    def optimize(self) -> None:
-        self.goal_manager.optimize(self.memory.sample_batch(10))
+    def optimize(self, step: int = None) -> None:
+        self.goal_manager.optimize(self.memory.sample_batch(10), step)
         self.low_level_agent.optimize()
 
     def _abandon_goal(self, goal_node: Node[Goal]) -> Node[Goal]:

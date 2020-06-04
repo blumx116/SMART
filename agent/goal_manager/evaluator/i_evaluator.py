@@ -3,9 +3,9 @@ from typing import Generic, Tuple, List, Union
 from interface import Interface
 import numpy as np
 
-from agent.memory import IMemory
+
 from agent.memory.trees import Node
-from misc.typevars import State, Action, Reward, Goal, Environment
+from misc.typevars import State, Action, Reward, Goal, Environment, TrainSample
 
 class IEvaluator(Generic[State, Action, Reward, Goal]):
     def reset(self, env: Environment, goal: Goal) -> None:
@@ -27,5 +27,5 @@ class IEvaluator(Generic[State, Action, Reward, Goal]):
         state: State, goal: Goal) -> np.ndarray:
         pass 
 
-    def step(self, memory_manager: IMemory) -> None:
+    def step(self, samples: List[TrainSample], step: int = None) -> None:
         pass 

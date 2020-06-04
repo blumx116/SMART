@@ -13,5 +13,5 @@ class IGenerator(Generic[State, Action, Reward, Goal]):
     def generate_subgoals(self, state: State, goal: Goal) -> List[Goal]:
         pass 
 
-    def optimize(self, samples: List[TrainSample]) -> None:
+    def optimize(self, samples: List[TrainSample], step: int = None) -> None:
         pass 

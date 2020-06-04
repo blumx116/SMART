@@ -45,7 +45,11 @@ class AGoalManager(IGoalManager[State, Goal]):
         self.generator: Generator = generator
         self.random: RandomState = optional_random(rand_seed)
 
-    def choose_subgoal(self, possible_subgoals: List[Goal], state: State, goal_node: Node[Goal]) -> Goal:
+    def choose_subgoal(self, 
+            possible_subgoals: List[Goal], 
+            state: State, 
+            goal_node: Node[Goal],
+            step: int = None) -> Goal:
         """
             Select which subgoal to pursue from the list of subgoals
             Parameters
@@ -102,7 +106,10 @@ class AGoalManager(IGoalManager[State, Goal]):
         self.evaluator.reset(env, goal)
         self.generator.reset(env, goal)
 
-    def select_next_subgoal(self, state: State, goal_node: Node[Goal]) -> Goal:
+    def select_next_subgoal(self, 
+            state: State, 
+            goal_node: Node[Goal], 
+            step: int = None) -> Goal:
         """
             Recommends the next subgoal to be pursued in order to achieve the 
             goal_node starting from the state. 
@@ -111,13 +118,15 @@ class AGoalManager(IGoalManager[State, Goal]):
             ----------
             state: State
             goal_node: Node[Goal]
+            step: int 
+                only used for tensorboard
             Returns
             -------
             chosen: Goal
         """
         possible_subgoals: List[Goal] = self.generate_subgoals(state, goal_node)
         # len = n_subgoals
-        return self.choose_subgoal(possible_subgoals, state, goal_node)
+        return self.choose_subgoal(possible_subgoals, state, goal_node, step)
         
     def should_abandon(self, trajectory: Trajectory, state: State, goal_node: Node[Goal]) -> bool:
         """
@@ -148,14 +157,20 @@ class AGoalManager(IGoalManager[State, Goal]):
         """
         pass 
 
-    def optimize(self, samples: List[TrainSample]) -> None:
+    def optimize(self, samples: List[TrainSample], step: int = None) -> None:
         """
             Runs one step of the optimizer for all machine learning modules
+            Parameters
+            ----------
+            samples: List[TrainSample]
+                samples to be trained on for gradient descent
+            step: int = None
+                only used for tensorboard
         """
-        self.evaluator.optimize(samples)
-        self.generator.optimize(samples)
+        self.evaluator.optimize(samples, step)
+        self.generator.optimize(samples, step)
 
-    def _sigmoid_sample(value: float, squish: bool = True) -> bool:
+    def _sigmoid_sample(self, value: float, squish: bool = True) -> bool:
         """
             if squish, applies sigmoid on value to apply sigmoid function
             to squish it to [0, 1] range. The selects true with that probability

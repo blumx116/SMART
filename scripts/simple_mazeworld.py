@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Any, Dict 
 
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
@@ -16,7 +16,6 @@ from agent.memory import IMemory, CompleteMemory
 from env.mazeworld import MazeWorldCache, MazeWorldGenerator, MazeWorld, State
 from misc.utils import array_equal
 
-writer: SummaryWriter = SummaryWriter()
 YDIMS = 10
 XDIMS = 10
 generator = MazeWorldGenerator(YDIMS, XDIMS, 2,  100, 10)
@@ -25,22 +24,29 @@ global env
 env = MazeWorld(cache._get_cached_board(0))
 device: torch.device = torch.device("cuda:0")
 
+settings : Dict[str, Any] = {
+    "device" : torch.device("cuda:0"),
+    "tensorboard" : SummaryWriter()
+}
+
 fig = plt.figure() 
 images = [] 
 
 low_level_agent: IAgent = BacktrackingMazeAgent(env)
 low_level_agent: IAgent = Grid2PointWrapper(low_level_agent)
-evaluator: IEvaluator = GridworldEvaluator(XDIMS+2, YDIMS+2, device, gamma=0.99)
+evaluator: IEvaluator = GridworldEvaluator(XDIMS+2, YDIMS+2, settings, gamma=0.99)
 generator: IGenerator = SimpleGridworldGenerator()
 fulfils_goal = lambda state, goal: array_equal(state[:,:,-1], goal[:,:,0])
-goal_manager: IGoalManager = SimpleGoalManager(evaluator, generator, 2, fulfils_goal)
+goal_manager: IGoalManager = SimpleGoalManager(evaluator, generator, 1, fulfils_goal)
 memory: IMemory = CompleteMemory(100, 3)
 agent = SMARTAgent(goal_manager, low_level_agent, memory)
 
 totals = [] 
 
+step: int = 0
 
-for seed in [0] * 500:
+
+for iter, seed in enumerate([0] * 500):
     total_reward: int = 0
     print(f"================={seed}=================")
     env= MazeWorld(cache._get_cached_board(seed))
@@ -49,6 +55,8 @@ for seed in [0] * 500:
     agent.reset(env, state, goal)
     done = False 
     states: List[State] = [state]
+
+    t: int = 0
 
     while not done:
         print('step')
@@ -59,9 +67,12 @@ for seed in [0] * 500:
         agent.view(state, action, reward)
         print(env._location)
 
-        agent.optimize()
+        agent.optimize(step)
+        t += 1
+        step += 1
 
-    writer.add_scalar('reward', total_reward)
+    settings['tensorboard'].add_scalar('duration', t, iter)
+    settings['tensorboard'].add_scalar('reward', total_reward, iter)
     totals.append(total_reward)
 
     def render(env: MazeWorld, state: State):

@@ -12,5 +12,5 @@ class IAgent(Generic[Environment, State, Action, Reward, Goal]):
     def view(self, state: State, action: Action, reward: Reward) -> None:
         pass 
 
-    def optimize(self) -> None:
+    def optimize(self, step: int = None) -> None:
         pass

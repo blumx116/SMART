@@ -1,20 +1,31 @@
-from typing import Generic, List
+from abc import ABC,  abstractmethod
+from typing import Union, Generic
 
-from interface import Interface
+from numpy.random import RandomState
 
-from agent.memory.trees import Node
-from misc.typevars import State, Action, Reward, Goal, Trajectory, Environment
-from misc.typevars import TrainSample
+from data_structures.trees import Node
+from misc.typevars import Option, Transition, Trajectory, Environment
 
-class IMemory(Generic[State, Action, Reward, Goal]):
-    def reset(self, env: Environment, state: State, goal: Goal) -> None:
+class IMemory(ABC, Generic[State, Action, Reward, Option]):
+    @abstractmethod
+    def reset(self, 
+            env: Environment[State, Action, Reward, Option], 
+            root_option: Node[Option], 
+            random_seed: Union[int, RandomState] = None) -> None:
         pass
 
-    def view(self, state: State, action: Action, reward: Reward) -> None:
+    @abstractmethod
+    def set_actionable_option(self, option_node: Node[Option]) -> None:
+        pass 
+
+    @abstractmethod
+    def add_suboption(self, new_node: Node[Option], parent_node: Node[Option]) -> None:
+        pass 
+
+    @abstractmethod
+    def view(self, transition: Transition) -> None:
         pass
 
-    def sample_batch(self, count: int) -> List[TrainSample]:
-        pass
-    
-    def get_trajectory(self, goal_node: Node[Goal]) -> Trajectory:
+    @abstractmethod
+    def trajectory_for(self, option_node: Node[Option]) -> Trajectory:
         pass

@@ -1,166 +1,151 @@
-from typing import TypeVar, Generic
+from typing import Dict, Any, Union
 
-import numpy as np
+import numpy as np 
 from numpy.random import RandomState
 
-from agent import IAgent
-from agent.goal_manager import IGoalManager
+from agent import IOptionBasedAgent
+from agent.evaluator import IEvaluator
+from agent.generator import IGenerator
+from agent.planning_terminator import IPlanningTerminator
+from agent.policy_terminator import IPolicyTerminator
 from agent.memory import IMemory
-from agent.memory.trees import Tree, Node
-from misc.typevars import State, Goal, Reward, Action
-from misc.typevars import Environment
-from misc.utils import bool_random_choice, optional_random
+from data_structures.trees import Tree, Node
+from misc.typevars import State, Action, Reward, Option
+from misc.typevars import Environment, TrainSample
+from misc.utils import optional_random
 
-# DEBUG
-amax = lambda s: np.unravel_index(np.argmax(s[:,:,-1]), s[:,:,-1].shape)
+Environment = Enviroment[State, Action, Reward, Option]
 
-class SMARTAgent(Generic[State, Goal, Action, Reward, Environment]):
-    def __init__(self, 
-            goal_manager: IGoalManager[State, Goal], 
-            low_level_agent: IAgent,
-            memory: IMemory) :
-        """
-            Parameters
-            ----------
-            goal_manager: IGoalManager[State, Goal]
-                manages choosing, abandoning and planning goals
-            low_level_agent: IAgent,
-                manages turning goals in to actions
-            memory: IMemory
-                keeps a record of previous observations
-            Attributes
-            ----------
-            goal_manager: IGoalManager[State, Goal]
-                manages choosing, abandoning and planning goals
-            low_level_agent: IAgent,
-                manages turning goals in to actions
-            memory: IMemory
-                keeps a record of previous observations
-            current_goal: Node[Goal]
-                the current goal being pursued
-            actionable_goal: Node[Goal] or None
-                either current goal or None, depending on whether or not
-                current goal is actionable
-            terminal_goal: Node[Goal]
-                the highest level goal for the agent to pursue
-        """
-        self.goal_manager: IGoalManager[State, Goal] = goal_manager
-        self.low_level_agent = low_level_agent
-        self.memory: IMemory = memory
+class SMARTAgent:
+    def __init__(self,
+        evaluator: IEvaluator[State, Reward, Option],
+        generator: IGenerator[State, Reward, Option],
+        planning_terminator: IPlanningTerminator[State, Option],
+        policy_terminator: IPolicyTerminator[State, Option],
+        low_level: IOptionBasedAgent[State, Action, Reward, Option],
+        memory: IMemory,
+        settings: Dict[str, Any]
+    ):
+        self.evaluator: IEvaluator = evaluator
+        self.generator: IGenerator = generator
+        self.planning_terminator: IPlanningTerminator = planning_terminator
+        self.policy_terminator: IPolicyTerminator = policy_terminator
+        self.low_level: IOptionBasedAgent = low_level
+        self.memory = memory 
 
-        self.__current_goal: Node[Goal] = None 
-        self.__actionable_goal: Node[Goal] = None
-        self.__terminal_goal: Node[Goal] = None
+        self.tensorboard: SummaryWriter = settings['tensorboard']
+        self.random: RandomState = optional_random(settings['random'])
 
-    def reset(self, env: Environment, state: State, goal: Goal) -> None:
-        self.goal_manager.reset(env, state, goal)
-        self.low_level_agent.reset(env, state, goal)
-        self.memory.reset(env, state, goal)
-
-        print(f"reset: {amax(state)}=>{amax(goal)}")
-
-        self._terminal_goal = Node(goal)
-        self._current_goal = self._terminal_goal
-        self._actionable_goal = None
-
-    def act(self, state: State) -> Action:
-        cur_goal: Node[Goal] = self._current_goal
-        while self._should_abandon(state, cur_goal):
-            cur_goal = self._abandon_goal(cur_goal)
-        if not self._is_actionable(cur_goal):
-            cur_goal = self._plan(state, cur_goal)
-        print(f"act: subgoal={amax(cur_goal.value)}")
-        return self.low_level_agent.act(state, cur_goal.value)
-
-    def view(self, state: State, action: Action, reward: Reward) -> None:
-        self.goal_manager.view(state, action, reward)
-        self.low_level_agent.view(state, action, reward)
-        self.memory.view(state, action, reward)
+        self.current_option_node: Node[Option] = None
+        self.actionable_option_node: Node[Option] = None
+        self.root_option_node: Node[Option] = None
 
     def optimize(self, step: int = None) -> None:
-        self.goal_manager.optimize(self.memory.sample_batch(10), step)
-        self.low_level_agent.optimize()
+        samples: List[TrainSample] = self.memory.sample(50)
+        self.evaluator.optimize(samples, step)
+        self.generator.optimize(samples, step)
+        self.planning_terminator.optimize(samples, step)
+        self.policy_terminator.optimize(samples, step)
+        self.low_level.optimize(step)
 
-    def _abandon_goal(self, goal_node: Node[Goal]) -> Node[Goal]:
-        assert self._goal_equal(goal_node, self._current_goal)
-        assert not self._goal_equal(goal_node, self._terminal_goal)
+    def reset(self, 
+            env: Environment, 
+            root_option: Option, 
+            random_seed: Union[int, RandomState] = None) -> None:
+        """
+            Reset the agent to function in a new environment/episode.
+            Parameters
+            ----------
+            env: Environment[State, Action, Reward]
+                the environment the agent is about to act in
+            root_option: Option
+                the base option that the agent begins executing
+        """
+        self.root_option_node = Node(root_option)
+        if random_seed is not None:
+            self.random = optional_random(random_seed)
 
-        self._announce_abandon_goal(goal_node)
-        self._current_goal = Tree.get_next_right(goal_node)
-        return self._current_goal
+        self.evaluator.reset(env, random_seed)
+        self.generator.reset(env, random_seed)
+        self.planning_terminator.reset(env, random_seed)
+        self.policy_terminator.reset(env, random_seed)
+        self.low_level.reset(env, random_seed)
+        self.memory.reset(env, self.root_option_node, random_seed)
 
-    def _add_subgoal(self, subgoal: Goal, existing_goal_node: Node[Goal]) -> Node[Goal]:
-        subgoal_node: Node[Goal] = Tree.add_left(subgoal, existing_goal_node)
-        self._announce_add_subgoal(subgoal_node, existing_goal_node)
-        return subgoal_node
+    def view(self, transition: Transition) -> None:
+        """
+            View a transition that happened in the environment, adding it to memory
+            Parameters
+            ----------
+            transition: Transition | Tuple[State, Action, Reward, State]
+                the transition that was observed
+        """
+        self.low_level.view(transition)
+        self.memory.view(transition)
 
-    def _goal_equal(self, goal1: Node[Goal], goal2: Node[Goal]) -> bool:
-        return goal1 == goal2
+    def act(self, state: State, option: Optional[Option] = None) -> Action:
+        """
+            Updates options internally, possibly abandoning its currrent
+            options and choosing new ones. Finally chooses its option to 
+            pursue and delegates the choice of choosing an action to the 
+            lower level agent
+            Parameters
+            ----------
+            state: State
+                the observation of the state that the agent is at when making 
+                the action
+            option: Optional[Option]
+                currently just for IOptionBasedAgent compatability
+            Returns
+            -------
+            chosen: Action
+                the action that the agent has chosen to take
+        """
+        while self._should_abandon_(state, self.current_option):
+            self._abandon_option_(self.current_option)
+        if not self._is_actionable_(self.current_option):
+            self.plan(state, self.current_option)
+            self._add_actionable_option_(self.current_option)
+        self.low_level.act(state, self.current_option.value)
 
-    def _is_actionable(self, goal_node: Node[Goal]) -> bool:
-        return self._goal_equal(goal_node, self._actionable_goal)
+    def plan(self, state: State, option_node: Node[Option]) -> Node[Option]:
+        if not self._should_stop_planning_(state, option_node):
+            possibilities: List[Option] = self.generator.generate(state, option_node.value)
+            chosen: Option = self.evaluator.select(state, possibilities, option_node.value)
+            new_option_node: Node[Option] = self._add_suboption_(chosen, option_node)
+            return self.plan(state, option_node)
+        else:
+            return option_node
 
-    def _plan(self, state: State, existing_goal: Node[Goal]) -> Node[Goal]:
-        if self._should_terminate_planning(state, existing_goal):
-            self._current_goal = existing_goal
-            self._actionable_goal = existing_goal
-            return self._actionable_goal
-        subgoal: Goal = self.goal_manager.select_next_subgoal(state, existing_goal) 
-        subgoal_node: Node[Goal] = self._add_subgoal(subgoal, existing_goal)
-        return self._plan(state, subgoal_node)
+    def _should_abandon_(self, state: State, option_node: Node[Option]) -> bool:
+        trajectory: Trajectory = self.memory.trajectory_for(option_node)
+        return bool_random_choice(
+            self.policy_terminator.termination_probability(
+                trajectory, 
+                state, 
+                option_node.value),
+            self.random)
 
-    def _should_abandon(self, state: State, goal_node: Node[Goal]) -> bool:
-        if self._goal_equal(goal_node, self._terminal_goal):
-            return False # can't abandon terminal goal
-        return self.goal_manager.should_abandon(
-                trajectory=self.memory.get_trajectory(goal_node),
-                state=state, goal_node=goal_node)
+    def _abandon_option_(self, option_node: Node[Option]) -> None:
+        assert not option_node == self.root_option_node
+        if self._is_actionable_(option_node):
+            self.actionable_option_node = None
+        self.current_option_node = Tree.get_next_right(self.current_option_node)
 
-    def _should_terminate_planning(self, state: State, goal_node: Node[Goal]) -> None:
-        return self.goal_manager.should_terminate_planning(state, goal_node)
+    def _is_actionable_(self, option_node: Node[Option]) -> bool:
+        return self.actionable_option == option_node
 
-    @property
-    def _current_goal(self) -> Node[Goal]:
-        return self.__current_goal
+    def _add_actionable_option_(self, option_node: Node[Option]) -> None:
+        self.actionable_option_node = option_node
+        self.memory.set_actionable_option(option_node)
 
-    @_current_goal.setter
-    def _current_goal(self, value: Node[Goal]) -> None:
-        self._announce_set_current_goal(value)
-        self.__current_goal = value
+    def _add_suboption_(self, new_option: Option, parent_node: Node[Option]) -> None:
+        new_option_node: Node[Option] = Tree.add_left(new_option, parent_node)
+        self.memory.add_suboption(new_option_node, parent_node)
 
-    @property 
-    def _actionable_goal(self) -> Node[Goal]:
-        return self.__actionable_goal
-
-    @_actionable_goal.setter
-    def _actionable_goal(self, value: Node[Goal]) -> None:
-        self._announce_set_actionable_goal(value)
-        self.__actionable_goal = value
-
-    @property
-    def _terminal_goal(self) -> Node[Goal]:
-        return self.__terminal_goal
-
-    @_terminal_goal.setter
-    def _terminal_goal(self, value: Node[Goal]) -> None:
-        self.__terminal_goal = value 
-
-    def _announce_add_subgoal(self, subgoal_node: Node[Goal], existing_goal_node: Node[Goal]) -> None:
-        toprint: Node[Goal] = subgoal_node
-        print("========adding subgoal============")
-        while toprint is not None:
-            print(amax(toprint.value))
-            toprint = Tree.get_next_right(toprint)
-        print("===================================")
-        self.memory._observe_add_subgoal(subgoal_node, existing_goal_node)
-        self.goal_manager._observe_add_subgoal(subgoal_node, existing_goal_node)
-
-    def _announce_abandon_goal(self, goal_node: Node[Goal]) -> None:
-        self.goal_manager._observe_abandon_goal(goal_node)
-
-    def _announce_set_current_goal(self, goal_node: Node[Goal]) -> None:
-        self.memory._observe_set_current_goal(goal_node)
-        self.goal_manager._observe_set_current_goal(goal_node)
-
-    def _announce_set_actionable_goal(self, goal_node: Node[Goal]) -> None:
-        pass
+    def _should_stop_planning_(self, state: State, option_node: Node[Option]) -> None:
+        return bool_random_choice(
+            self.planning_terminator.termination_probability(
+                state,
+                option_node.value),
+            self.random)

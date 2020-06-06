@@ -1,7 +1,7 @@
 from typing import TypeVar, List, Tuple, NamedTuple
 
 State = TypeVar("State")
-Goal = TypeVar("Goal")
+Option = TypeVar("Option")
 Reward = TypeVar("Reward")
 Action = TypeVar("Action")
 Memory = TypeVar("Memory")
@@ -12,10 +12,11 @@ Transition = NamedTuple("Transition", [
 Trajectory = List[Transition]
 TrainSample = NamedTuple("TrainSample", [
     ["initial_state", State],
-    ["subgoal_trajectory", Trajectory],
-    ["subgoal", Goal],
-    ["goal_trajectory", Trajectory],
-    ["goal", Goal],
+    ["suboption_trajectory", Trajectory],
+    ["suboption", Option],
+    ["midpoint_state", State]
+    ["option_trajectory", Trajectory],
+    ["option", Option],
     ["terminal_state", State]])
 
 Environment = TypeVar("Environment")

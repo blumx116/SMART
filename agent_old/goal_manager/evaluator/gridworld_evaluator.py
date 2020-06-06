@@ -72,10 +72,13 @@ class GridworldEvaluator:
     def estimate_path_reward(self, state: Union[State, Goal],
         goal: Union[Goal, Node[Goal]], network: str = "inner") -> torch.Tensor:
         """
+            Parameters
+            ----------
             state: [y_dim, x_dim, 3] or [y_dim, x_dim, 1]
-            goal: [y_dim, x_dim, 1]
+            goal: Goal[Point]
             result: torch.Tensor[float, device] : [1,]
         """
+        if isinstance(state, Goal):
         if state.shape[2] > 1:
             state = state[:,:,-1] #[y_dim, x_dim]
             state = state[:,:,np.newaxis] #[y_dim, x_dim, 1]

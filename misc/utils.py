@@ -3,12 +3,14 @@ from typing import List, Iterable, TypeVar, Union, Tuple, Generic
 
 import numpy as np
 from numpy.random import RandomState
+import torch
 
 T = TypeVar("T")
 V = TypeVar("V")
 
 def flatmap(data: Iterable[Iterable[T]]) -> List[T]:
     return [el for l in data for el in l]
+
 
 def unpack_tuple(tup: Tuple[T]) -> Union[T, Tuple[T]]:
     if not isinstance(tup, tuple):
@@ -20,6 +22,7 @@ def unpack_tuple(tup: Tuple[T]) -> Union[T, Tuple[T]]:
     else: #len == 0
         return None 
 
+
 def optional_random(rand_seed: Union[int, RandomState] = None):
     if rand_seed is None:
         return np.random
@@ -27,6 +30,7 @@ def optional_random(rand_seed: Union[int, RandomState] = None):
         return RandomState(rand_seed)
     else:
         return rand_seed
+
 
 def array_unique(data: Iterable[np.ndarray], return_inverse=False, 
         return_counts = False) -> List[np.ndarray]:
@@ -60,7 +64,6 @@ def array_unique(data: Iterable[np.ndarray], return_inverse=False,
     return unpack_tuple(result)
 
 
-
 def array_equal(el1: T, el2: T) -> bool:
     """
         Checks if element 1 and 2 are equal
@@ -87,8 +90,11 @@ def array_equal(el1: T, el2: T) -> bool:
             return True 
         else:
             return array_equal(el1[0], el2[0]) and array_equal(el1[1:], el2[1:])
+    elif type(el1) != type(el2):
+        return False
     else:
         return el1 == el2
+
 
 def array_contains(el: T, elems: Iterable[T]) -> bool:
     """
@@ -110,6 +116,7 @@ def array_contains(el: T, elems: Iterable[T]) -> bool:
         if array_equal(el, element):
             return True
     return False
+
 
 def array_random_choice(
         elems: Iterable[np.ndarray], 
@@ -142,15 +149,14 @@ def array_random_choice(
     return elems[idx]
 
 
-
-def array_shuffle(elems: Iterable[np.ndarray], random: Union[int, RandomState] = None) -> List[np.ndarray]:
+def array_shuffle(elems: List[np.ndarray], random: Union[int, RandomState] = None) -> List[np.ndarray]:
     """
         shuffles an array of arrays, out of place
         NOTE: Exists because default numpy function not compatible with np.ndarrays
         elems: array of np.ndarrays to shuffle
         Parameters
         ----------
-        elems: Iterable[np.ndarray]
+        elems: List[np.ndarray]
             elements to be shuffled, not in place. Technically works on even if 
             elements are not np.ndarrays
         random: Union[int, RandomState]
@@ -167,6 +173,7 @@ def array_shuffle(elems: Iterable[np.ndarray], random: Union[int, RandomState] =
     indices = np.arange(len(elems))
     np.random.shuffle(indices)
     return [elems[i] for i in indices]
+
 
 def bool_random_choice(probability: float, rand_seed: Union[int, RandomState] = None) -> bool:
     """
@@ -192,50 +199,21 @@ PROJECT_BASE_DIR: str = os.path.abspath(os.path.join(
     os.path.dirname(__file__),
     os.path.pardir))
 
-class NumPyDict(Generic[T, V]):
-    """
-        A replacement class for dictionaries when numpy npdarrays need to be used as keys
-        Works by hashing key to bytes if np.ndarray, and behaving like a normal dict otherwise
-    """
-    def __init__(self, dtype=float):
-        self.inner = {}
-        self.dtype = dtype
 
-    def _pack_np(self, key: T) -> T:
-        """
-            converts np.ndarrays to bytes
-            everything else unchanged
-        """
-        if isinstance(key, np.ndarray):
-            return key.tobytes()
-        return key
+def is_onehot(vec: Union[torch.Tensor, np.ndarray]) -> bool:
+    return vec.sum() == vec.max() == 1.
 
-    def _unpack_np(self, key: T) -> T:
-        """
-            convertes bytes to np.ndarray
-            everything else unchanged
-        """
-        if isinstance(key, bytes):
-            return np.frombuffer(key, dtype=self.dtype)
-        return key
 
-    def __getitem__(self, key: T) -> V:
-        return self.inner[self._pack_np(key)]
-
-    def __setitem__(self, key: T, value: V) -> None:
-        self.inner[self._pack_np(key)] = value
-
-    def __iter__(self):
-        return iter(self.inner)
-
-    def __next__(self):
-        return self.inner.__next__()
-
-    def __contains__(self, key: T) -> bool:
-        return self._pack_np(key) in self.inner 
-
-    def keys(self) -> Iterable[T]:
-        return list(map(self._unpack_np, self.inner.keys()))
-
-    def values(self) -> Iterable[V]:
-        return self.inner.values()
+def np_onehot(values: Union[int, List[int], np.ndarray], max: int) -> np.ndarray:
+    if isinstance(values, int):
+        value: int = values
+        assert 0 <= value <= max
+        return (np.arange(max+1) == value).astype(int)
+    values = np.asarray(values)
+    assert len(values.shape) <= 2
+    if len(values.shape) == 1:
+        #credit: https://stackoverflow.com/questions/29831489/convert-array-of-indices-to-1-hot-encoded-numpy-array
+        return np.eye(max+1)[values].astype(int)
+    else:
+        # credit: https://stackoverflow.com/questions/36960320/convert-a-2d-matrix-to-a-3d-one-hot-matrix-numpy
+        return (np.arange(max+1) == values[..., None]).astype(int)

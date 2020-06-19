@@ -1,7 +1,8 @@
-from typing import Dict, Any, Union
+from typing import Dict, Any, Union, Generic, List
 
 import numpy as np 
 from numpy.random import RandomState
+from torch.utils.tensorboard import SummaryWriter
 
 from agent import IOptionBasedAgent
 from agent.evaluator import IEvaluator
@@ -10,38 +11,38 @@ from agent.planning_terminator import IPlanningTerminator
 from agent.policy_terminator import IPolicyTerminator
 from agent.memory import IMemory
 from data_structures.trees import Tree, Node
-from misc.typevars import State, Action, Reward, Option
-from misc.typevars import Environment, TrainSample
-from misc.utils import optional_random
+from misc.typevars import State, Action, Reward, Option, OptionData
+from misc.typevars import Environment, TrainSample, Transition, Trajectory
+from misc.utils import optional_random, bool_random_choice
 
-Environment = Enviroment[State, Action, Reward, Option]
-
-class SMARTAgent:
+class SMARTAgent(Generic[State, Action, Reward, OptionData]):
     def __init__(self,
-        evaluator: IEvaluator[State, Reward, Option],
-        generator: IGenerator[State, Reward, Option],
-        planning_terminator: IPlanningTerminator[State, Option],
-        policy_terminator: IPolicyTerminator[State, Option],
-        low_level: IOptionBasedAgent[State, Action, Reward, Option],
-        memory: IMemory,
-        settings: Dict[str, Any]
-    ):
-        self.evaluator: IEvaluator = evaluator
-        self.generator: IGenerator = generator
-        self.planning_terminator: IPlanningTerminator = planning_terminator
-        self.policy_terminator: IPolicyTerminator = policy_terminator
-        self.low_level: IOptionBasedAgent = low_level
-        self.memory = memory 
+            evaluator: IEvaluator[State, Action, Reward, OptionData],
+            generator: IGenerator[State, Action, Reward, OptionData],
+            planning_terminator: IPlanningTerminator[State, Action, Reward, OptionData],
+            policy_terminator: IPolicyTerminator[State, Action, Reward, OptionData],
+            low_level: IOptionBasedAgent[State, Action, Reward, OptionData],
+            memory: IMemory[State, Action, Reward, Option],
+            settings: Dict[str, Any]):
+        self.evaluator: IEvaluator[State, Action, Reward, OptionData] = evaluator
+        self.generator: IGenerator[State, Action, Reward, OptionData] = generator
+        self.planning_terminator: IPlanningTerminator[State, Action, Reward, OptionData] = \
+            planning_terminator
+        self.policy_terminator: IPolicyTerminator[State, Action, Reward, OptionData] = \
+            policy_terminator
+        self.low_level: IOptionBasedAgent[State, Action, Reward, OptionData] = low_level
+        self.memory: IMemory[State, Action, Reward, OptionData] = memory 
 
         self.tensorboard: SummaryWriter = settings['tensorboard']
         self.random: RandomState = optional_random(settings['random'])
 
-        self.current_option_node: Node[Option] = None
-        self.actionable_option_node: Node[Option] = None
-        self.root_option_node: Node[Option] = None
+        self.current_option_node: Node[Option[OptionData]] = None
+        self.actionable_option_node: Node[Option[OptionData]] = None
+        self.root_option_node: Node[Option[OptionData]] = None
 
     def optimize(self, step: int = None) -> None:
-        samples: List[TrainSample] = self.memory.sample(50)
+        samples: List[TrainSample[State, Action, Reward, OptionData]] = \
+            self.memory.sample(50)
         self.evaluator.optimize(samples, step)
         self.generator.optimize(samples, step)
         self.planning_terminator.optimize(samples, step)
@@ -49,8 +50,8 @@ class SMARTAgent:
         self.low_level.optimize(step)
 
     def reset(self, 
-            env: Environment, 
-            root_option: Option, 
+            env: Environment[State, Action, Reward], 
+            root_option: Option[OptionData], 
             random_seed: Union[int, RandomState] = None) -> None:
         """
             Reset the agent to function in a new environment/episode.
@@ -62,6 +63,7 @@ class SMARTAgent:
                 the base option that the agent begins executing
         """
         self.root_option_node = Node(root_option)
+        self.current_option_node = self.root_option_node
         if random_seed is not None:
             self.random = optional_random(random_seed)
 
@@ -69,10 +71,10 @@ class SMARTAgent:
         self.generator.reset(env, random_seed)
         self.planning_terminator.reset(env, random_seed)
         self.policy_terminator.reset(env, random_seed)
-        self.low_level.reset(env, random_seed)
+        self.low_level.reset(env, root_option, random_seed)
         self.memory.reset(env, self.root_option_node, random_seed)
 
-    def view(self, transition: Transition) -> None:
+    def view(self, transition: Transition[State, Action, Reward]) -> None:
         """
             View a transition that happened in the environment, adding it to memory
             Parameters
@@ -83,7 +85,7 @@ class SMARTAgent:
         self.low_level.view(transition)
         self.memory.view(transition)
 
-    def act(self, state: State, option: Optional[Option] = None) -> Action:
+    def act(self, state: State, option: Option[OptionData] = None) -> Action:
         """
             Updates options internally, possibly abandoning its currrent
             options and choosing new ones. Finally chooses its option to 
@@ -101,24 +103,32 @@ class SMARTAgent:
             chosen: Action
                 the action that the agent has chosen to take
         """
-        while self._should_abandon_(state, self.current_option):
-            self._abandon_option_(self.current_option)
-        if not self._is_actionable_(self.current_option):
-            self.plan(state, self.current_option)
-            self._add_actionable_option_(self.current_option)
-        self.low_level.act(state, self.current_option.value)
+        while self._should_abandon_(state, self.current_option_node):
+            self._abandon_option_(self.current_option_node)
+        if not self._is_actionable_(self.current_option_node):
+            self.plan(state, self.current_option_node)
+            self._add_actionable_option_(self.current_option_node)
+        self.low_level.act(state, self.current_option_node.value)
 
-    def plan(self, state: State, option_node: Node[Option]) -> Node[Option]:
+    def plan(self, 
+            state: State, 
+            option_node: Node[Option[OptionData]]) -> Node[Option]:
         if not self._should_stop_planning_(state, option_node):
-            possibilities: List[Option] = self.generator.generate(state, option_node.value)
-            chosen: Option = self.evaluator.select(state, possibilities, option_node.value)
-            new_option_node: Node[Option] = self._add_suboption_(chosen, option_node)
-            return self.plan(state, option_node)
+            possibilities: List[Option[OptionData]] = \
+                self.generator.generate(state, option_node.value)
+            chosen: Option[OptionData] = \
+                self.evaluator.select(state, possibilities, option_node.value)
+            new_option_node: Node[Option[OptionData]] = \
+                self._add_suboption_(chosen, option_node)
+            return self.plan(state, new_option_node)
         else:
             return option_node
 
-    def _should_abandon_(self, state: State, option_node: Node[Option]) -> bool:
-        trajectory: Trajectory = self.memory.trajectory_for(option_node)
+    def _should_abandon_(self, 
+            state: State,
+            option_node: Node[Option[OptionData]]) -> bool:
+        trajectory: Trajectory[State, Action, Reward] = \
+            self.memory.trajectory_for(option_node)
         return bool_random_choice(
             self.policy_terminator.termination_probability(
                 trajectory, 
@@ -126,24 +136,33 @@ class SMARTAgent:
                 option_node.value),
             self.random)
 
-    def _abandon_option_(self, option_node: Node[Option]) -> None:
+    def _abandon_option_(self, 
+            option_node: Node[Option[OptionData]]) -> None:
         assert not option_node == self.root_option_node
         if self._is_actionable_(option_node):
             self.actionable_option_node = None
         self.current_option_node = Tree.get_next_right(self.current_option_node)
 
-    def _is_actionable_(self, option_node: Node[Option]) -> bool:
-        return self.actionable_option == option_node
+    def _is_actionable_(self, 
+            option_node: Node[Option[OptionData]]) -> bool:
+        return self.actionable_option_node == option_node
 
-    def _add_actionable_option_(self, option_node: Node[Option]) -> None:
+    def _add_actionable_option_(self, 
+            option_node: Node[Option[OptionData]]) -> None:
         self.actionable_option_node = option_node
         self.memory.set_actionable_option(option_node)
 
-    def _add_suboption_(self, new_option: Option, parent_node: Node[Option]) -> None:
-        new_option_node: Node[Option] = Tree.add_left(new_option, parent_node)
+    def _add_suboption_(self,
+            new_option: Option[OptionData], 
+            parent_node: Node[Option[OptionData]]) -> Node[Option[OptionData]]:
+        new_option_node: Node[Option[OptionData]] = \
+            Tree.add_left(new_option, parent_node)
         self.memory.add_suboption(new_option_node, parent_node)
+        return new_option_node
 
-    def _should_stop_planning_(self, state: State, option_node: Node[Option]) -> None:
+    def _should_stop_planning_(self, 
+            state: State, 
+            option_node: Node[Option[OptionData]]) -> None:
         return bool_random_choice(
             self.planning_terminator.termination_probability(
                 state,

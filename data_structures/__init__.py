@@ -1,1 +1,2 @@
-from .prioirity_queue import PriorityQueue
+from .priority_queue import PriorityQueue
+from .numpy_dict import NumPyDict

@@ -1,6 +1,5 @@
 from .mazeworld_q_model import MazeworldQModel
 from .mazeworld_v_model import MazeworldVModel
-from .Grid2PointWrapper import Grid2PointWrapper
 from .backtracking_maze_agent import BacktrackingMazeAgent
 from .simple_mazeworld_generator import SimpleMazeworldGenerator
 from .simple_mazeworld_evaluator import SimpleMazeworldEvaluator

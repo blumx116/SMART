@@ -1,1 +1,2 @@
 from .i_policy_terminator import IPolicyTerminator
+from .strict_goal_terminator import StrictGoalTerminator

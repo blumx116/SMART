@@ -1,13 +1,14 @@
-from typing import Union, Dict 
+from typing import Union, Dict, List
 
 from numpy.random import RandomState 
 
+from agent.memory import IMemory
 from data_structures.trees import Node, Tree 
-from misc.typevars import State, Action, Reward, Option 
-from misc.typevars import Trajectory
+from misc.typevars import State, Action, Reward, Option, OptionData
+from misc.typevars import Trajectory, Environment, Transition, TrainSample
 from misc.utils import optional_random, bool_random_choice
 
-class CompleteMemory(IMemory):
+class CompleteMemory(IMemory[State, Action, Reward, OptionData]):
     def __init__(self, 
             max_length: int = None,
             random_seed: Union[int, RandomState] = None):
@@ -21,16 +22,18 @@ class CompleteMemory(IMemory):
         self.max_length = max_length
         self.random_seed: RandomState = optional_random(random_seed)
 
-        self.num_options: Dict[Node[Option], int] = { }
-        self.num_transitions: Dict[Node[Option], int] = { }
-        self.trajectory_for: Dict[Node[Option], Trajectory] = { }
+        self._num_options: Dict[Node[Option[OptionData]], int] = { }
+        self._num_transitions: Dict[Node[Option[OptionData]], int] = { }
+        self._trajectory_for: Dict[
+            Node[Option[OptionData]], 
+            Trajectory[State, Action, Reward]] = { }
         self.list_roots: List[Node[Option]] = [ ]
 
         self.current_option: Node[Option] = None
 
     def reset(self,
-            env: Environment[State, Action, Reward, Option],
-            root_option: Node[Option],
+            env: Environment[State, Action, Reward],
+            root_option: Node[Option[OptionData]],
             random_seed: Union[int, RandomState] = None) -> None:
         """
             Parameters
@@ -41,19 +44,20 @@ class CompleteMemory(IMemory):
         """
         if random_seed is not None:
             self.random = optional_random(random_seed)
-        assert root_option not in self.num_options
+        assert root_option not in self._num_options
         # check that we haven't seen this before
         if len(self.list_roots) >= self.max_length:
-            to_remove: Node[Option] = self.list_roots.pop()
-            del self.num_options[to_remove]
-            del self.num_transitions[to_remove]
+            to_remove: Node[Option[OptionData]] = self.list_roots.pop()
+            del self._num_options[to_remove]
+            del self._num_transitions[to_remove]
         self.list_roots.append(root_option)
-        self.num_options[to_remove] = 0 
-        self.num_transitions[to_remove] = 0
+        self._num_options[root_option] = 0
+        self._num_transitions[root_option] = 0
+        self._trajectory_for[root_option] = [ ]
         
         self.current_option = root_option
 
-    def set_actionable_option(self, option_node: Node[Option]) -> None:
+    def set_actionable_option(self, option_node: Node[Option[OptionData]]) -> None:
         """
             Parameters
             ----------
@@ -61,29 +65,34 @@ class CompleteMemory(IMemory):
         """
         self.current_option = option_node
 
-    def add_suboption(self, new_node: Node[Option], parent_node: Node[Option]) -> None:
+    def add_suboption(self, 
+            new_node: Node[Option[OptionData]], 
+            parent_node: Node[Option[OptionData]]) -> None:
         """
             Parameters
             ----------
             new_node: Node[Option]
             parent_node: Node[Option]
         """
-        root_node: Node[Option] = Tree.get_root(parent_node) 
-        self.num_options[root_node] += 1
-        self.trajectory_for[new_node] = [ ]
+        root_node: Node[Option[OptionData]] = Tree.get_root(parent_node) 
+        self._num_options[root_node] += 1
+        self._trajectory_for[new_node] = [ ]
 
-    def view(self, transition: Transition) -> None:
+    def view(self, 
+            transition: Transition[State, Action, Reward]) -> None:
         """
             Parameters
             ----------
             transition: Transition
         """
-        assert self.current_option in self.trajectory_for
-        root_node: Node[Option] = Tree.get_root(self.current_option) # could be cached
-        self.num_transitions[root_node] += 1 
-        self.trajectory_for[self.current_option].append(transition)
+        assert self.current_option in self._trajectory_for
+        root_node: Node[Option[OptionData]] = Tree.get_root(self.current_option)
+        # ^ could be cached
+        self._num_transitions[root_node] += 1
+        self._trajectory_for[self.current_option].append(transition)
         
-    def trajectory_for(self, option_node: Node[Option]) -> Trajectory:
+    def trajectory_for(self, 
+            option_node: Node[Option[OptionData]]) -> Trajectory:
         """
             Parameters
             ----------
@@ -93,14 +102,15 @@ class CompleteMemory(IMemory):
             trajectory: Trajctory
         """
         start_depth: int = option_node.depth 
-        result: Trajectory = [ ]
-        current_node: Node[Option] = option_node
-        while current_node is not None and  current_node.depth >= start_depth:
-            result = self.trajectory_for[current_node] + result 
+        result: Trajectory[State, Action, Reward] = [ ]
+        current_node: Node[Option[OptionData]] = option_node
+        while current_node is not None and current_node.depth >= start_depth:
+            result = self._trajectory_for[current_node] + result
             current_node = Tree.get_next_left(current_node)
         return result
 
-    def initial_state_for(self, option_node: Node[Option]) -> State:
+    def initial_state_for(self, 
+            option_node: Node[Option[OptionData]]) -> State:
         """
             Parameters
             ----------
@@ -109,13 +119,13 @@ class CompleteMemory(IMemory):
             -------
             state: State
         """
-        trajectory: Trajectory = self.trajectory_for(option_node)
+        trajectory: Trajectory[State, Action, Reward] = self._trajectory_for(option_node)
         if len(trajectory) > 0:
             return trajectory[0].state
         else:
             return self.terminal_state_for(option_node)
 
-    def terminal_state_for(self, option_node: Node[Option]) -> State:
+    def terminal_state_for(self, option_node: Node[Option[OptionData]]) -> State:
         """
             Parameters
             ----------
@@ -124,13 +134,14 @@ class CompleteMemory(IMemory):
             -------
             state: State
         """
-        next_right: Node[Goal] = Tree.get_next_right(goal_node)
+        next_right: Node[Option[OptionData]] = Tree.get_next_right(goal_node)
         if next_right is None:
             return None 
         else:
             return self.initial_state_for(next_right)
 
-    def sample(self, num_samples: int = 1) -> List[TrainSample]:
+    def sample(self, 
+            num_samples: int = 1) -> List[TrainSample[State, Action, Reward, OptionData]]:
         """
             Parameters
             ----------
@@ -139,22 +150,22 @@ class CompleteMemory(IMemory):
             -------
             samples: List[TrainSample] : [num_samples, ]
         """
-        result: List[TrainSample] = [ ]
+        result: List[TrainSample[State, Action, Reward, OptionData]] = [ ]
         for _ in range(num_samples):
-            episode_root_node: Node[Option] = bool_random_choice(
+            episode_root_node: Node[Option[OptionData]] = bool_random_choice(
                 self.list_roots, 
                 self.random)
-            parent_option_node: Node[Option] = bool_random_choice(
+            parent_option_node: Node[Option[OptionData]] = bool_random_choice(
                 Tree.list_nodes(episode_root_node),
                 self.random)
-            child_option_node: Node[Option] = bool_random_choice(
+            child_option_node: Node[Option[OptionData]] = bool_random_choice(
                 Tree.list_nodes(parent_option_node),
                 self.random)
             
-            suboption_trajectory: Trajectory = self.trajectory_for(
-                child_option_node)
-            option_trajectory: Trajectory = self.trajectory_for(
-                parent_option_node)
+            suboption_trajectory: Trajectory[State, Action, Reward, OptionData] = \
+                self._trajectory_for(child_option_node)
+            option_trajectory: Trajectory[State, Action, Reward, OptionData] = \
+                self._trajectory_for(parent_option_node)
 
             initial_state: State = self.initial_state_for(child_option_node)
             midpoint_state: State = self.terminal_state_for(child_option_node)

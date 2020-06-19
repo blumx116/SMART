@@ -1,18 +1,20 @@
+from typing import Dict, Any, Callable
+
 from agent.evaluator import AEvaluator, IVModel, IQModel
 from agent.planning_terminator import IPlanningTerminator
-from misc.typevars import State, Action, Reward, Option
+from misc.typevars import State, Action, Reward, Option, OptionData
 from misc.utils import bool_random_choice
 
-class SimpleMazeworldEvaluator(AEvaluator[State, Action, Reward, Option]):
+class SimpleMazeworldEvaluator(AEvaluator[State, Action, Reward, OptionData]):
     def __init__(self,
-        planning_terminator: IPlanningTerminator[State, Action, Reward, Option],
-        v_model: IVModel[State, Reward, Option],
-        q_model: IQModel[State, Reward, Option],
+        planning_terminator: IPlanningTerminator[State, Action, Reward, OptionData],
+        v_model: IVModel[State, Reward, OptionData],
+        q_model: IQModel[State, Reward, OptionData],
         settings: Dict[str, Any],
         get_beta: Callable[[int], float],
         gamma: float):
 
-        self.planning_terminator: IPlanningTerminator[State, Action, Reward, Option] = \
+        self.planning_terminator: IPlanningTerminator[State, Action, Reward, OptionData] = \
             planning_terminator
         super().__init__(v_model, q_model, settings, get_beta, gamma)
 

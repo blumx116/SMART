@@ -1,16 +1,20 @@
 import math
-from typing import List, Tuple, Union
+from itertools import chain
+from typing import List, Tuple, Union, Iterable
 
 import numpy as np 
 from numpy.random import RandomState
 import torch
 import torch.nn as nn
+from torch.nn.parameter import Parameter
 import torch.optim as optim
+from torch.utils.tensorboard import SummaryWriter
 
 from agent.evaluator import IVModel
-from env.mazeworld import Point, MazeWorld, State, Option, Reward 
+from env.mazeworld import Point, MazeWorld, State, OptionData, Reward, Action
+from misc.typevars import Option, Environment
 
-class MazeworldVModel(IVModel[State, Reward, Option]):
+class MazeworldVModel(IVModel[State, Reward, Option[OptionData]]):
     def __init__(self, xdim: int, ydim: int, settings: int):
         self.env : MazeWorld = None 
         self.input_dims: List[int] = (1, xdim, ydim, 4)
@@ -44,10 +48,14 @@ class MazeworldVModel(IVModel[State, Reward, Option]):
             nn.LeakyReLU(0.1),
             nn.LayerNorm(50),
             nn.Linear(50, 1)).to(self.device)
-        self.optimizer = optim.SGD(self.inner.parameters(), lr=1e-3)
+        self.optimizer = optim.SGD(self.parameters(), lr=1e-3)
+
+    def parameters(self) -> Iterable[Parameter]:
+        return chain(self.conv_layers.parameters(), self.ff_layers.parameters())
+
 
     def reset(self, 
-            env: Environment, 
+            env: Environment[State, Action, Reward],
             random_seed: Union[int, RandomState] = None) -> None:
         self.env = env
 

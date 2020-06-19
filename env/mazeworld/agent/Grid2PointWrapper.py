@@ -1,7 +1,48 @@
+from typing import Union, List
+
+from numpy.random import RandomState
+
+from agent import IOptionBasedAgent
+from env.mazeworld import State, Action, Point, Reward, OptionData
+from misc.typevars import Option, Environment, Transition
+
+class AgentGrid2PointStateWrapper(IOptionBasedAgent[State, Action, Reward, OptionData]):
+    def __init__(self,
+            inner: IOptionBasedAgent[Point, Action, Reward, OptionData]):
+        self.inner: IOptionBasedAgent[Point, Action, Reward, OptionData] = inner
+        self.env: Environment[State, Action, Reward] = None
+
+    def reset(self,
+            env: Environment[State, Action, Reward],
+            root_option: Option[OptionData],
+            random_seed: Union[int, RandomState]) -> None:
+        self.env = EnvGrid2PointStateWrapper(env)
+        return self.inner.reset(self.env, root_option, random_seed)
+
+    def view(self,
+            transition: Transition[State, Action, Reward]) -> None:
+        transition: Transition[Point, Action, Reward] = Transition(
+            self._grid_to_point(transition.state),
+            transition.action,
+            transition.reward)
+        return self.inner.view(transition)
+
+    def act(self,
+            state: State,
+            option: Option[OptionData]) -> Action:
+        return self.inner.act(
+            self._grid_to_point(state),
+            option)
+
+    def optimize(self) -> None:
+        return self.inner.optimize()
+
+
+"""
 from interface import implements
 import numpy as np
 
-from agent import IAgent
+from agent import IOptionBasedAgent
 from env.mazeworld import MazeWorld, State, Action, Reward, Point, Goal
 
 InnerType = IAgent[MazeWorld, Point, Action, Reward, Point]
@@ -31,3 +72,4 @@ class Grid2PointWrapper(IAgent[MazeWorld, State, Action, Reward, Goal]):
 
     def _convert_goal(self, goal: Goal) -> Point:
         return self.env._grid_to_point(goal).astype(int)
+"""

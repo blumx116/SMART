@@ -3,7 +3,7 @@ from typing import List
 from interface import implements
 
 from .i_generator import IGenerator
-from env.mazeworld.mazeworld import Point
+from env.mazeworld.mazeworld_old import Point
 from agent.memory import IMemory
 from misc.typevars import Environment, Goal, State, TrainSample
 

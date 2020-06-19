@@ -1,16 +1,20 @@
 import math
-from typing import List, Tuple, Union
+from itertools import chain
+from typing import List, Tuple, Union, Iterable
 
 import numpy as np 
 from numpy.random import RandomState
 import torch
 import torch.nn as nn
+from torch.nn.parameter import Parameter
 import torch.optim as optim
+from torch.utils.tensorboard import SummaryWriter
 
 from agent.evaluator import IQModel
-from env.mazeworld import Point, MazeWorld, State, Option, Reward 
+from env.mazeworld import Point, MazeWorld, State, OptionData, Reward, Action
+from misc.typevars import Option, Environment
 
-class MazeworldQModel(IQModel[State, Reward, Option]):
+class MazeworldQModel(IQModel[State, Reward, Option[OptionData]]):
     def __init__(self, xdim: int, ydim: int, settings: int):
         self.env : MazeWorld = None 
         self.input_dims: List[int] = (1, xdim, ydim, 4)
@@ -44,22 +48,25 @@ class MazeworldQModel(IQModel[State, Reward, Option]):
             nn.LeakyReLU(0.1),
             nn.LayerNorm(50),
             nn.Linear(50, 1)).to(self.device)
-        self.optimizer = optim.SGD(self.inner.parameters(), lr=1e-3)
+        self.optimizer = optim.SGD(self.parameters(), lr=1e-3)
+
+    def parameters(self) -> Iterable[Parameter]:
+        return chain(self.conv_layers.parameters(), self.ff_layers.parameters())
 
     def reset(self, 
-            env: Environment, 
+            env: Environment[State, Action, Reward],
             random_seed: Union[int, RandomState] = None) -> None:
         self.env = env
 
     def forward(self, 
             state: State, 
-            suboption: Option, 
-            option: Option) -> torch.Tensor:
+            suboption: Option[OptionData],
+            option: Option[OptionData]) -> torch.Tensor:
         depth: int = option.depth 
         option_point: Point = option.value 
         option_grid: np.ndarray = self.env._point_to_grid(option_point) 
         # np.ndarray[float] : [ydim, xdim, 1]
-        suboption_point: point = option.value
+        suboption_point: Point = option.value
         suboption_grid: np.ndarray = self.env._point_to_grid(option_point)
         # np.ndarray[float] : [ydim, xdim, 1]
         representation: np.ndarray = np.concatenate(
@@ -71,7 +78,7 @@ class MazeworldQModel(IQModel[State, Reward, Option]):
         # torch.Tensor[float, self.device] : [1, 5, ydim, xdim]
         flattened: torch.Tensor = self.conv_layers(representation)
         # torch.Tensor[float, self.device] : [1, hidden_input]
-        depth: torch.Tensor = torch.Tensor(depth).float().to(self.device).reshape((1,1,))
+        depth: torch.Tensor = torch.Tensor([depth]).float().to(self.device).reshape((1,1,))
         # torch.Tensor[float, self.device] : [1, 1]
         flattened: torch.Tensor = torch.cat((flattened, depth), dim=1)
         # torch.Tensor[float, self.device]: : [1, hidden_input + 1]

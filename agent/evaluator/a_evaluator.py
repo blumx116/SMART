@@ -1,31 +1,32 @@
 from abc import abstractmethod
-from typing import Dict, Any, Callable
+from typing import Dict, Any, Callable, List, Union, Tuple
 
 import numpy as np
 from numpy.random import RandomState 
 import torch 
 
 from agent.evaluator import IEvaluator, IVModel, IQModel
-from misc.typevars import State, Action, Reward, Option
+from misc.typevars import State, Action, Reward, Option, OptionData
+from misc.typevars import TrainSample, Environment, Trajectory
 from misc.utils import array_random_choice, optional_random
 
-class AEvaluator(IEvaluator[State, Action, Reward, Option]):
+class AEvaluator(IEvaluator[State, Action, Reward, OptionData]):
     def __init__(self, 
-        v_model: IVModel[State, Reward, Option],
-        q_model: IQModel[State, Reward, Option],
+        v_model: IVModel[State, Reward, OptionData],
+        q_model: IQModel[State, Reward, OptionData],
         settings: Dict[str, Any], 
         get_beta: Callable[[int], float],
         gamma: float):
 
-        self.v_model: IVModel[State, Reward, Option] = v_model
-        self.q_model: IQModel[State, Reward, Option] = q_model
+        self.v_model: IVModel[State, Reward, OptionData] = v_model
+        self.q_model: IQModel[State, Reward, OptionData] = q_model
         self.get_beta: Callable[[int], float] = get_beta
         self.step: int = 0
         self.gamma: float = gamma
         self.random: RandomState = optional_random(settings['random'])
 
     def optimize(self, 
-            samples: List[TrainSample], 
+            samples: List[TrainSample[State, Action, Reward, OptionData]], 
             step: int = None) -> None:
         """
             Optimization step. Trains the internal machine learning models
@@ -41,7 +42,7 @@ class AEvaluator(IEvaluator[State, Action, Reward, Option]):
         self._train_v_model_(samples, step)
     
     def reset(self, 
-            env: Environment, 
+            env: Environment[State, Action, Reward], 
             random_seed: Union[int, RandomState] = None) -> None:
         """
             Prepares the agent to begin functioning in the new environment.
@@ -62,8 +63,8 @@ class AEvaluator(IEvaluator[State, Action, Reward, Option]):
 
     def select(self, 
             state: State, 
-            possibilities: List[Option], 
-            option: Option) -> Option:
+            possibilities: List[Option[OptionData]], 
+            option: Option[OptionData]) -> Option[OptionData]:
         """
             Conditioned on the current state and option, chooses the next 
             suboption to pursue as a suboption to 'option' from the list of 
@@ -94,8 +95,8 @@ class AEvaluator(IEvaluator[State, Action, Reward, Option]):
 
     def _get_q_target_(self, 
             state: State, 
-            option: Option, 
-            trajectory: Trajectory) -> torch.Tensor:
+            option: Option[OptionData], 
+            trajectory: Trajectory[State, Action, Reward]) -> torch.Tensor:
         """
             Uses the VModel as the target for the state, option 
             pair, sometimes using the raw data from the trajectory
@@ -120,9 +121,9 @@ class AEvaluator(IEvaluator[State, Action, Reward, Option]):
 
     def _get_v_target_(self, 
             state: State, 
-            suboption: Option, 
-            option: Option, 
-            trajectory: Trajectory) -> torch.Tensor:
+            suboption: Option[OptionData], 
+            option: Option[OptionData], 
+            trajectory: Trajectory[State, Action, Reward]) -> torch.Tensor:
         """
             Uses the QModel as the target for the state, suboption, option 
             triple, sometimes using the raw data from the trajectory
@@ -150,7 +151,7 @@ class AEvaluator(IEvaluator[State, Action, Reward, Option]):
     @abstractmethod
     def _should_use_raw_(self, 
             state: State, 
-            option: Option) -> bool:
+            option: Option[OptionData]) -> bool:
         """
             Returns whether or not the model should bootstrap the estimate
             for this sample or use direct training data. If True, uses raw
@@ -170,7 +171,7 @@ class AEvaluator(IEvaluator[State, Action, Reward, Option]):
         pass
 
     def _train_q_model_(self, 
-            samples: List[TrainSample], 
+            samples: List[TrainSample[State, Action, Reward, OptionData]],
             step: int = None) -> None:
         """
             Trains the Q-model to learn that the value of a trajectory
@@ -182,7 +183,7 @@ class AEvaluator(IEvaluator[State, Action, Reward, Option]):
             step: Optional[int] = None
                 only used for tensorboard logging
         """
-        inputs: List[Tuple[State, Option, Option]] = list(map(
+        inputs: List[Tuple[State, Option[OptionData], Option[OptionData]]] = list(map(
             lambda sample: (sample.initial_state, sample.suboption, sample.option),
             samples))
         targets: List[torch.Tensor] = []
@@ -204,7 +205,7 @@ class AEvaluator(IEvaluator[State, Action, Reward, Option]):
         self.q_model.optimize(inputs, targets, step)
 
     def _train_v_model_(self, 
-            samples: List[TrainSample], 
+            samples: List[TrainSample[State, Action, Reward, OptionData]], 
             step: int = None) -> None:
         """
             Trains the V-model to learn that the V-model is the expectation
@@ -217,7 +218,7 @@ class AEvaluator(IEvaluator[State, Action, Reward, Option]):
             step: Optional[int] = None
                 only used for tensorboard logging
         """
-        inputs: List[Tuple[State, Option]] = list(map(
+        inputs: List[Tuple[State, Option[OptionData]]] = list(map(
             lambda sample: (sample.initial_state, sample.option),
             samples))
         targets: List[torch.Tensor] = list(map(

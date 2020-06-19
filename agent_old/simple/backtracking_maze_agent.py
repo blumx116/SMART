@@ -5,8 +5,7 @@ from interface import implements
 
 from agent import IAgent
 from env.mazeworld import MazeWorld, Point, Action, Reward
-from misc.priority_queue import PriorityQueue
-from misc.utils import NumPyDict, array_equal
+from data_structures import PriorityQueue, NumPyDict
 
 State = Point # np.ndarray[float] : [y_dim, x_dim, 3]
 Goal = Point # np.ndarray[int]: [2,] (y, x)
@@ -26,7 +25,7 @@ class BacktrackingMazeAgent(IAgent[MazeWorld, State, Action, Reward, Goal]):
     def reset(self, env: MazeWorld, state: State, goal: Goal) -> None:
         self.env: MazeWorld = env 
         self.queue: PriorityQueue[Point] = PriorityQueue()
-        self.visited: NumpyDict[Point, bool] = NumPyDict(int)
+        self.visited: NumPyDict[Point, bool] = NumPyDict(int)
         self.visited[state] = True
         self.current_goal: Goal = goal
         self.history: List[State] = [state] 

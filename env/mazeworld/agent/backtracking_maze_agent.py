@@ -1,12 +1,12 @@
-from typing import Set, List, NamedTuple, Iterable, Tuple
+from typing import Set, List, NamedTuple, Iterable, Tuple, Union
 
 import numpy as np
-from interface import implements
+from numpy.random import  RandomState
 
-from agent import IAgent
-from env.mazeworld import MazeWorld, Point, Action, Reward
-from misc.priority_queue import PriorityQueue
-from misc.utils import NumPyDict, array_equal
+from agent import IOptionBasedAgent
+from env.mazeworld import MazeWorld, Point, Action, Reward, OptionData, State
+from data_structures import PriorityQueue, NumPyDict
+from misc.typevars import Option, Transition
 
 State = Point # np.ndarray[float] : [y_dim, x_dim, 3]
 Goal = Point # np.ndarray[int]: [2,] (y, x)
@@ -19,29 +19,39 @@ class Target:
 
 # Target = NamedTuple("Target", [('point', Point), ('states', List[State])]) 
 
-class BacktrackingMazeAgent(IAgent[MazeWorld, State, Action, Reward, Goal]):
+class BacktrackingMazeAgent(IOptionBasedAgent[State, Action, Reward, OptionData]):
     def __init__(self, env: MazeWorld):
-        self.reset(env, None, None)
+        self.reset(env, None)
 
-    def reset(self, env: MazeWorld, state: State, goal: Goal) -> None:
-        self.env: MazeWorld = env 
+    def reset(self,
+            env: MazeWorld,
+            root_option: Option[OptionData],
+            random_seed: Union[int, RandomState] = None)-> None:
+        self.env: MazeWorld = env
         self.queue: PriorityQueue[Point] = PriorityQueue()
-        self.visited: NumpyDict[Point, bool] = NumPyDict(int)
-        self.visited[state] = True
-        self.current_goal: Goal = goal
-        self.history: List[State] = [state] 
+        self.visited: NumPyDict[Point, bool] = NumPyDict(int)
+        self.current_goal: Goal = root_option.value if root_option is not None else None
+        self.history: List[State] = [ ]
         self.current_target: Target = None
 
-    def act(self, state: State, goal: Goal) -> Action:
+    def act(self,
+            state: State,
+            option: Union[Goal, Option[OptionData]]) -> Action:
         """
             If we have a move that gets us closer to the goal to a point
             we haven't been before, take it. Otherwise, figure out the point
             that we haven't been to yet which is closest to the goal
             and start backtracking to that
         """
+        goal: Goal = option.value if isinstance(option, Option) else option
+        if len(self.history) == 0 or not array_equal(self.history[-1], state):
+            # add this state to observation history if it's not already there
+            self.history.append(state)
+            self.visited[state] = True
+
         if not array_equal(self.current_goal, goal):
             #forget everything whenever we switch goals
-            self.reset(self.env, state, goal)
+            self.reset(self.env, goal)
         if self.current_target is not None:
             if np.array_equal(self.current_target.point, state) or \
                 self.current_target.point in self.visited:
@@ -60,13 +70,15 @@ class BacktrackingMazeAgent(IAgent[MazeWorld, State, Action, Reward, Goal]):
         else:
             return self._move_towards(self.current_target)
 
-    def view(self, state: State, action: Action, reward: Reward) -> None:
+    def view(self,
+             transition: Transition[State, Action, Reward]) -> None:
         """
             Add the observed state to our history. If this move was a backtrack,
             then just remove the node we backtracked over instead so that we don't
             have any cycles
         """
-        self.visited[state] = True 
+        state: State = transition.state
+        self.visited[state] = True
         if len(self.history) > 1 and array_equal(self.history[-2], state):
                 #our last move was a backtrack
                 self.history = self.history[:-1] 

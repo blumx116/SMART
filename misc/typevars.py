@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import TypeVar, List, Tuple, NamedTuple, NewType, Generic
+from typing import TypeVar, List, Generic, Optional
 
 
 State = TypeVar("State")
@@ -25,13 +25,20 @@ class Trajectory(
 
 @dataclass
 class TrainSample(Generic[State, Action, Reward, OptionData]):
+    prev_option: Optional[Option[OptionData]]
     initial_state: State
     suboption_trajectory: Trajectory[State, Action, Reward]
-    suboption: Option 
+    suboption: Option[OptionData]
     midpoint_state: State 
-    option_trajectory: Trajectory [State, Action, Reward]
-    option: Option 
+    option_trajectory: Trajectory[State, Action, Reward]
+    option: Option[OptionData]
     terminal_state: State
 
-class Environment(Generic[State, Action, Reward]):
-    pass 
+
+lambda sample: self._get_v_target_(
+    sample.initial_state,
+    sample.prev_option,
+    sample.suboption,
+    sample.option,
+    sample.suboption_trajectory,
+    sample.option_trajectory),

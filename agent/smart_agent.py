@@ -1,4 +1,4 @@
-from typing import Dict, Any, Union, Generic, List
+from typing import Dict, Any, Union, Generic, List, Optional
 
 import numpy as np 
 from numpy.random import RandomState
@@ -37,6 +37,7 @@ class SMARTAgent(Generic[State, Action, Reward, OptionData]):
         self.random: RandomState = optional_random(settings['random'])
 
         self.current_option_node: Node[Option[OptionData]] = None
+        self.prev_option_node: Optional[Node[Option[OptionData]]] = None
         self.actionable_option_node: Node[Option[OptionData]] = None
         self.root_option_node: Node[Option[OptionData]] = None
 
@@ -64,6 +65,7 @@ class SMARTAgent(Generic[State, Action, Reward, OptionData]):
         """
         self.root_option_node = Node(root_option)
         self.current_option_node = self.root_option_node
+        self.prev_option_node = None
         if random_seed is not None:
             self.random = optional_random(random_seed)
 
@@ -113,11 +115,17 @@ class SMARTAgent(Generic[State, Action, Reward, OptionData]):
     def plan(self, 
             state: State, 
             option_node: Node[Option[OptionData]]) -> Node[Option]:
+        assert option_node == self.current_option_node
+        # don't presently support forward planning
         if not self._should_stop_planning_(state, option_node):
             possibilities: List[Option[OptionData]] = \
-                self.generator.generate(state, option_node.value)
+                self.generator.generate(state,
+                    prev_option=self._prev_option_(),
+                    parent_option=option_node.value)
             chosen: Option[OptionData] = \
-                self.evaluator.select(state, possibilities, option_node.value)
+                self.evaluator.select(state, possibilities,
+                    prev_option=self._prev_option_(),
+                    parent_option=option_node.value)
             new_option_node: Node[Option[OptionData]] = \
                 self._add_suboption_(chosen, option_node)
             return self.plan(state, new_option_node)
@@ -141,6 +149,7 @@ class SMARTAgent(Generic[State, Action, Reward, OptionData]):
         assert not option_node == self.root_option_node
         if self._is_actionable_(option_node):
             self.actionable_option_node = None
+        self.prev_option_node = self.current_option_node
         self.current_option_node = Tree.get_next_right(self.current_option_node)
 
     def _is_actionable_(self, 
@@ -162,9 +171,17 @@ class SMARTAgent(Generic[State, Action, Reward, OptionData]):
 
     def _should_stop_planning_(self, 
             state: State, 
-            option_node: Node[Option[OptionData]]) -> None:
+            option_node: Node[Option[OptionData]]) -> bool:
+        assert option_node == self.current_option_node
+        # don't presently support forward planning
         return bool_random_choice(
             self.planning_terminator.termination_probability(
                 state,
+                self._prev_option_(),
                 option_node.value),
             self.random)
+
+    def _prev_option_(self) -> Optional[Option[OptionData]]:
+        if self.prev_option_node is None:
+            return None
+        return self.prev_option_node.value

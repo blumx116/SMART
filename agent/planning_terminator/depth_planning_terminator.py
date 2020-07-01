@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import List, Union, Optional
 
 from numpy.random import RandomState
 
@@ -11,8 +11,13 @@ class DepthPlanningTerminator(IPlanningTerminator[State, Action, Reward, OptionD
 
     def termination_probability(self, 
             state: State, 
-            option: Option[OptionData]) -> float:
-        return float(option.depth >= self.max_depth)
+            prev_option: Optional[Option[OptionData]],
+            parent_option: Option[OptionData]) -> float:
+        depth: int = max(
+            map(lambda o: o.depth,
+                filter(lambda o: o is not None, [prev_option, parent_option])))
+        # max of depths of non-None options
+        return float(depth >= self.max_depth)
 
     def optimize(self, 
             samples: List[TrainSample[State, Action, Reward, OptionData]], 

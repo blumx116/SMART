@@ -1,4 +1,4 @@
-from typing import Union, Dict, List
+from typing import Union, Dict, List, Optional
 
 from numpy.random import RandomState 
 
@@ -6,7 +6,8 @@ from agent.memory import IMemory
 from data_structures.trees import Node, Tree 
 from misc.typevars import State, Action, Reward, Option, OptionData
 from misc.typevars import Trajectory, Environment, Transition, TrainSample
-from misc.utils import optional_random, bool_random_choice
+from misc.utils import optional_random, bool_random_choice, array_random_choice
+
 
 class CompleteMemory(IMemory[State, Action, Reward, OptionData]):
     def __init__(self, 
@@ -119,7 +120,7 @@ class CompleteMemory(IMemory[State, Action, Reward, OptionData]):
             -------
             state: State
         """
-        trajectory: Trajectory[State, Action, Reward] = self._trajectory_for(option_node)
+        trajectory: Trajectory[State, Action, Reward] = self.trajectory_for(option_node)
         if len(trajectory) > 0:
             return trajectory[0].state
         else:
@@ -134,7 +135,7 @@ class CompleteMemory(IMemory[State, Action, Reward, OptionData]):
             -------
             state: State
         """
-        next_right: Node[Option[OptionData]] = Tree.get_next_right(goal_node)
+        next_right: Node[Option[OptionData]] = Tree.get_next_right(option_node)
         if next_right is None:
             return None 
         else:
@@ -152,32 +153,37 @@ class CompleteMemory(IMemory[State, Action, Reward, OptionData]):
         """
         result: List[TrainSample[State, Action, Reward, OptionData]] = [ ]
         for _ in range(num_samples):
-            episode_root_node: Node[Option[OptionData]] = bool_random_choice(
+            episode_root_node: Node[Option[OptionData]] = array_random_choice(
                 self.list_roots, 
-                self.random)
-            parent_option_node: Node[Option[OptionData]] = bool_random_choice(
+                random=self.random)
+            parent_option_node: Node[Option[OptionData]] = array_random_choice(
                 Tree.list_nodes(episode_root_node),
-                self.random)
-            child_option_node: Node[Option[OptionData]] = bool_random_choice(
+                random=self.random)
+            child_option_node: Node[Option[OptionData]] = array_random_choice(
                 Tree.list_nodes(parent_option_node),
-                self.random)
+                random=self.random)
+            prev_option_node: Optional[Node[Option[OptionData]]] = \
+                Tree.get_next_left_parent(parent_option_node)
+            prev_option: Optional[Option[OptionData]] = \
+                prev_option_node.value if prev_option_node is not None else None
             
-            suboption_trajectory: Trajectory[State, Action, Reward, OptionData] = \
-                self._trajectory_for(child_option_node)
-            option_trajectory: Trajectory[State, Action, Reward, OptionData] = \
-                self._trajectory_for(parent_option_node)
+            suboption_trajectory: Trajectory[State, Action, Reward] = \
+                self.trajectory_for(child_option_node)
+            option_trajectory: Trajectory[State, Action, Reward]= \
+                self.trajectory_for(parent_option_node)
 
             initial_state: State = self.initial_state_for(child_option_node)
             midpoint_state: State = self.terminal_state_for(child_option_node)
             terminal_state: State = self.terminal_state_for(parent_option_node)
 
             result.append(TrainSample(
+                prev_option,
                 initial_state,
                 suboption_trajectory,
-                child_option_node,
+                child_option_node.value,
                 midpoint_state,
                 option_trajectory,
-                parent_option_node,
+                parent_option_node.value,
                 terminal_state))
         return result
             

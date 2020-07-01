@@ -119,15 +119,15 @@ def array_contains(el: T, elems: Iterable[T]) -> bool:
 
 
 def array_random_choice(
-        elems: Iterable[np.ndarray], 
+        elems: Iterable[T],
         probas: Iterable[float] = None,
-        random: Union[int, RandomState] = None) -> np.ndarray:
+        random: Union[int, RandomState] = None) -> T:
     """
         Randomly selects an element from elems to return. 
         NOTE: Exists because default numpy function not compatible with np.ndarrays
         Parameters
         ----------
-        elems : Iterable[np.ndarray]
+        elems : Iterable[T]]
             elements to choose from among
         probas: Iterable[float]: [len(elems), ]
             probabilities of choosing each item - need not sum to 1
@@ -135,17 +135,16 @@ def array_random_choice(
             random seed to use, uses global random if none provided
         Returns
         -------
-        selected: np.ndarray
+        selected: T
             the randomly selected element from the list
     """
     random: RandomState = optional_random(random)
-    elems = list(elems)
+    elems: List[T] = list(elems)
     if probas is not None:
         probas: np.ndarray = np.asarray(probas, dtype=float) + 1e-8
         probas /= np.sum(probas)
-    if random is None:
-        random = np.random
-    idx = random.choice(len(elems), p=probas)
+    random: RandomState = optional_random(random)
+    idx: int = random.choice(len(elems), p=probas)
     return elems[idx]
 
 

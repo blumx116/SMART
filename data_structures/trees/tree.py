@@ -1,4 +1,4 @@
-from typing import TypeVar, Generic, List
+from typing import TypeVar, Generic, List, Optional
 
 from .node import Node
 
@@ -76,7 +76,7 @@ class Tree(Generic[T]):
         return Tree._get_furthest_in_direction('left', subtree_root)
 
     @staticmethod
-    def get_next_left(node: Node[T]) -> Node[T]:
+    def get_next_left(node: Node[T]) -> Optional[Node[T]]:
         """
             Gets the rightmost node that is left of the node 'node'
             If these were numbers, then it would be the greatest number 
@@ -87,7 +87,19 @@ class Tree(Generic[T]):
         return Tree._get_next_in_direction_('left', node)
 
     @staticmethod
-    def get_next_right(node: Node[T]) -> Node[T]:
+    def get_next_left_parent(node: Node[T]) -> Optional[Node[T]]:
+        """
+        Gets the ancestor in 'node's ancestor tree that is the rightmost
+        but not further right than 'node'.
+        Alternately put, it gets the next left node in the tree ignoring node's
+        children
+        :param node: the reference node to search near
+        :return: the found ancestor node, None if all ancestors are left-children
+        """
+        return Tree._get_next_parent_in_direction_('left', node)
+
+    @staticmethod
+    def get_next_right(node: Node[T]) -> Optional[Node[T]]:
         """
             Gets the lefttmost node that is right of the node 'node'
             If these were numbers, then it would be the lowest number 
@@ -96,6 +108,18 @@ class Tree(Generic[T]):
             returns : the next value to the right, root if not found
         """
         return Tree._get_next_in_direction_('right', node)
+
+
+    def get_next_right_parent(node: Node[T]) -> Optional[Node[T]]:
+        """
+        Gets the ancestor in 'node's ancestor tree that is the leftmost
+        but not further left than 'node'.
+        Alternately put, it gets the next right node in the tree ignoring node's
+        children
+        :param node: the reference node to search near
+        :return: the found ancestor node, None if all ancestors are right-children
+        """
+        return Tree._get_next_parent_in_direction_('right', node)
 
     @staticmethod
     def get_rightmost(subtree_root: Node[T]) -> Node[T]:
@@ -106,7 +130,7 @@ class Tree(Generic[T]):
             subtree_root: the root of the subtree to search
             returns : the rightmost node
         """
-        return Tree._get_furthest_in_direction('right', subtree_root)
+        return Tree._get_furthest_in_direction_('right', subtree_root)
 
     @staticmethod
     def get_root(node: Node[T]) -> Node[T]:
@@ -225,7 +249,9 @@ class Tree(Generic[T]):
         return subtree_root
 
     @staticmethod
-    def _get_next_in_direction_(direction: str, node: Node[T]) -> Node[T]:
+    def _get_next_in_direction_(
+            direction: str,
+            node: Node[T]) -> Optional[Node[T]]:
         """
             Gets the next node over in the tree
             For instance, if this were a binary search tree of numbers,
@@ -282,3 +308,15 @@ class Tree(Generic[T]):
             node = node.get_relation('parent')
             node.size += 1
 
+    @staticmethod
+    def _get_next_parent_in_direction_(
+            direction: str,
+            node: Node[T]) -> Optional[Node[T]]:
+        other_dir: str = Tree._opposite_direction_(direction)
+        if not node.has_relation('parent'):
+            return None
+        if Tree._is_child_in_direction_(other_dir):
+            return node.get_relation('parent')
+        return Tree._get_next_parent_in_direction_(
+                direction,
+                node.get_relation('parent'))

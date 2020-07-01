@@ -1,13 +1,14 @@
 from abc import abstractmethod
-from typing import Dict, Any, Callable, List, Union, Tuple
+from typing import Dict, Any, Callable, List, Union, Tuple, Optional
 
 import numpy as np
 from numpy.random import RandomState 
 import torch 
 
 from agent.evaluator import IEvaluator, IVModel, IQModel
+from env import IEnvironment
 from misc.typevars import State, Action, Reward, Option, OptionData
-from misc.typevars import TrainSample, Environment, Trajectory
+from misc.typevars import TrainSample, Trajectory
 from misc.utils import array_random_choice, optional_random
 
 class AEvaluator(IEvaluator[State, Action, Reward, OptionData]):
@@ -42,7 +43,7 @@ class AEvaluator(IEvaluator[State, Action, Reward, OptionData]):
         self._train_v_model_(samples, step)
     
     def reset(self, 
-            env: Environment[State, Action, Reward], 
+            env: IEnvironment[State, Action, Reward],
             random_seed: Union[int, RandomState] = None) -> None:
         """
             Prepares the agent to begin functioning in the new environment.
@@ -63,8 +64,9 @@ class AEvaluator(IEvaluator[State, Action, Reward, OptionData]):
 
     def select(self, 
             state: State, 
-            possibilities: List[Option[OptionData]], 
-            option: Option[OptionData]) -> Option[OptionData]:
+            possibilities: List[Option[OptionData]],
+            prev_option: Optional[Option[OptionData]],
+            parent_option: Option[OptionData]) -> Option[OptionData]:
         """
             Conditioned on the current state and option, chooses the next 
             suboption to pursue as a suboption to 'option' from the list of 
@@ -74,9 +76,12 @@ class AEvaluator(IEvaluator[State, Action, Reward, OptionData]):
             state: State
                 the state that the agent is at when the chosen option will
                 begin to be pursued
-            possibilities: List[Option]
+            possibilities: List[Option[OptionData]]
                 the possible suboptions to pursue. Length must be at least 1
-            option: Option
+            prev_option: Optional[Option[OptionData]]
+                the last option that was pursue. Will be None at start of
+                new episode
+            parent_option: Option[OptionData]
                 the parent option that the chosen option will be a direct
                 child of
             Returns
@@ -93,8 +98,9 @@ class AEvaluator(IEvaluator[State, Action, Reward, OptionData]):
         # np.ndarray[float]: [len(possibilities), ]
         return array_random_choice(possibilities, probabilities, self.random)
 
-    def _get_q_target_(self, 
-            state: State, 
+    def _get_v_as_target_(self,
+            state: State,
+            prev_option: Optional[Option[OptionData]],
             option: Option[OptionData], 
             trajectory: Trajectory[State, Action, Reward]) -> torch.Tensor:
         """
@@ -104,6 +110,8 @@ class AEvaluator(IEvaluator[State, Action, Reward, OptionData]):
             ----------
             state: State
                 the initial state of the the trajectory
+            prev_option: Optional[Option]
+                the last option that had been pursued when 'option' was chosen
             option: Option
                 the parent option that was pursued
             trajectory: Trajectory
@@ -113,17 +121,19 @@ class AEvaluator(IEvaluator[State, Action, Reward, OptionData]):
             target: torch.Tensor[float, v_model.device] : [1,]
                 the estimated trajectory reward
         """
-        if self._should_use_raw(state, option):
-            result: torch.Tensor = self._trajectory_reward(trajectory)
+        if self._should_use_raw_(state, prev_option, option):
+            result: torch.Tensor = self._trajectory_reward_(trajectory)
         else:
-            result: torch.Tensor = self.v_model.forward(state, option)
+            result: torch.Tensor = self.v_model.forward(state, prev_option, option)
         return result.to(self.q_model.device)
 
-    def _get_v_target_(self, 
-            state: State, 
+    def _get_q_as_target_(self,
+            state: State,
+            prev_option: Optional[Option[OptionData]],
             suboption: Option[OptionData], 
             option: Option[OptionData], 
-            trajectory: Trajectory[State, Action, Reward]) -> torch.Tensor:
+            trajectory1: Trajectory[State, Action, Reward],
+            trajectory2: Trajectory[State, Action, Reward]) -> torch.Tensor:
         """
             Uses the QModel as the target for the state, suboption, option 
             triple, sometimes using the raw data from the trajectory
@@ -131,26 +141,32 @@ class AEvaluator(IEvaluator[State, Action, Reward, OptionData]):
             ----------
             state: State
                 the initial state of the the trajectory
+            prev_option: Optional[Option]
+                the last option that was pursue before 'option' was started
             suboption: Option
                 the suboption that was pursued right away
             option: Option
                 the parent option that was pursued
-            trajectory: Trajectory
-                the trajectory that was pursued from state->suboption->option
+            trajectory1: Trajectory
+                the trajectory that was pursued from state->suboption
+            trajectory2: Trajectory
+                the trajectory that was pursued from suboption->option
             Returns
             -------
             target: torch.Tensor[float, v_model.device] : [1,]
                 the estimated trajectory reward
         """
         if self._should_use_raw_(state, option):
-            result: torch.Tensor = self._trajectory_reward_(trajectory)
+            result: torch.Tensor = self._trajectory_reward_(trajectory1 + trajectory2)
         else:
-            result: torch.Tensor = self.q_model.forward(state, suboption, option)
+            result: torch.Tensor = self.q_model.forward(
+                state, prev_option, suboption, option)
         return result.to(self.v_model.device)
 
     @abstractmethod
     def _should_use_raw_(self, 
-            state: State, 
+            state: State,
+            prev_option: Optional[Option[OptionData]],
             option: Option[OptionData]) -> bool:
         """
             Returns whether or not the model should bootstrap the estimate
@@ -188,11 +204,11 @@ class AEvaluator(IEvaluator[State, Action, Reward, OptionData]):
             samples))
         targets: List[torch.Tensor] = []
         for sample in samples:
-            first_traj_reward: torch.Tensor = self._get_v_target_(
+            first_traj_reward: torch.Tensor = self._get_v_as_target_(
                 sample.initial_state, 
                 sample.suboption,
                 sample.suboption_trajectory)
-            second_traj_reward: torch.Tensor = self._get_v_target_(
+            second_traj_reward: torch.Tensor = self._get_v_as_target_(
                 sample.midpoint_state,
                 sample.option,
                 sample.option_trajectory)
@@ -218,14 +234,42 @@ class AEvaluator(IEvaluator[State, Action, Reward, OptionData]):
             step: Optional[int] = None
                 only used for tensorboard logging
         """
-        inputs: List[Tuple[State, Option[OptionData]]] = list(map(
-            lambda sample: (sample.initial_state, sample.option),
+        inputs: List[IVModel.TrainingDatum] = list(map(
+            lambda sample: (sample.initial_state,
+                            sample.prev_option,
+                            sample.option),
             samples))
         targets: List[torch.Tensor] = list(map(
-            lambda sample: self._get_q_target_(
+            lambda sample: self._get_q_as_target_(
                 sample.initial_state,
+                sample.prev_option,
                 sample.suboption,
                 sample.option,
-                sample.suboption_trajectory + sample.option_trajectory),
+                sample.suboption_trajectory,
+                sample.option_trajectory),
             samples))
         self.v_model.optimize(inputs, targets, step)
+
+    def _trajectory_reward_(self,
+            traj: Trajectory[State, Action, Reward]) -> torch.Tensor:
+        """
+        Sums the discounted rewards received along the trajectory
+        Note: reward_dims = 1 if reward is a float
+        :param traj: The trajectory observed, only rewards relevant
+        :return: torch.Tensor[float32, self.device] : [reward_dims]
+        """
+        rewards: List[Reward] = list(map(lambda trans: trans.reward, traj))
+        rewards: np.ndarray[float] = np.asarray(rewards).astype(float)
+        # if reward = float, np.ndarray[float] : [len(traj), ]
+        # if reward = array, np.ndarray[float] : [len(traj), reward_dims]
+        dts: np.ndarray[int] = np.arange(rewards.shape[0])
+        # np.ndarray = [0, 1, 2, 3, 4]
+        discounts: np.ndarray[float] = self.gamma ** dts
+        # np.ndarray[float] : [len(traj)] e.g. [1, 0.9, 0.81, 0.729,...]
+        discounted_rewards: np.ndarray[float] = (rewards.T * discounts).T
+        # np.ndarray[float] : [len(traj), reward_dims]
+        total_rewards: np.ndarray = np.asarray(np.sum(discounted_rewards, axis=0))
+        # np.ndarray[float] : [reward_dims], reward_dims=1 if float
+        return torch.from_numpy(total_rewards).type(torch.float32).to(self.device)
+
+

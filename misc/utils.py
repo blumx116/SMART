@@ -221,18 +221,19 @@ def np_onehot(values: Union[int, List[int], np.ndarray], max: int) -> np.ndarray
 
 class Stacker:
     def __init__(self,
-                 input_shape: List[int]):
-        self.input_shape = input_shape
-        self.output_shape = input_shape
-        self.model = nn.Sequential()
+                 input_shape: Iterable[int]):
+        self.input_shape: List[int] = list(input_shape)
+        self.output_shape: List[int] = self.input_shape.copy()
+        self.model: nn.Sequential = nn.Sequential()
 
     def stack(self, module: nn.Module) -> List[int]:
         self.model.append(module)
         self.output_shape = Stacker.get_output_shape(self.output_shape, module)
         return self.output_shape
 
-    def get(self) -> Tuple[nn.Sequential, List[int]]:
-        return self.model, self.output_shape
+    def get(self, device: torch.device) -> Tuple[nn.Sequential, List[int]]:
+        model = self.model.to(device) if device is not None else self.model
+        return model, self.output_shape
 
     @staticmethod
     def get_output_shape(
@@ -260,5 +261,9 @@ class Stacker:
             return input_shape
         if isinstance(module, (nn.ReLU, nn.Tanh, nn.Sigmoid, nn.ELU)):
             return input_shape
+        if isinstance(module, nn.Flatten):
+            batch_dim: int = input_shape[0]
+            features: int = np.prod(input_shape[1:])
+            return [batch_dim, features]
         else:
             raise Exception("module not supported")

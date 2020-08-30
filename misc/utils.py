@@ -4,6 +4,7 @@ from typing import List, Iterable, TypeVar, Union, Tuple, Generic
 import numpy as np
 from numpy.random import RandomState
 import torch
+import torch.nn as nn
 
 T = TypeVar("T")
 V = TypeVar("V")
@@ -216,3 +217,48 @@ def np_onehot(values: Union[int, List[int], np.ndarray], max: int) -> np.ndarray
     else:
         # credit: https://stackoverflow.com/questions/36960320/convert-a-2d-matrix-to-a-3d-one-hot-matrix-numpy
         return (np.arange(max+1) == values[..., None]).astype(int)
+
+
+class Stacker:
+    def __init__(self,
+                 input_shape: List[int]):
+        self.input_shape = input_shape
+        self.output_shape = input_shape
+        self.model = nn.Sequential()
+
+    def stack(self, module: nn.Module) -> List[int]:
+        self.model.append(module)
+        self.output_shape = Stacker.get_output_shape(self.output_shape, module)
+        return self.output_shape
+
+    def get(self) -> Tuple[nn.Sequential, List[int]]:
+        return self.model, self.output_shape
+
+    @staticmethod
+    def get_output_shape(
+            input_shape: Tuple[int, int, int],
+            module: nn.Module):
+
+        if isinstance(module, (nn.MaxPool2d, nn.Conv2d)):
+            assert len(input_shape) == 4
+
+            def conv_shape(shape: List[int], module: nn.Conv2d, offset: int = 0):
+                input = shape[2 + offset]
+                out = input + (2 * module.padding[offset]) - (
+                            module.dilation[offset] * (module.kernel_size[offset] - 1))
+                out = np.floor((out - 1) / module.stride[offset]) + 1
+                return int(out)
+            h_out = conv_shape(input_shape, module, offset=0)
+            w_out = conv_shape(input_shape, module, offset=1)
+            return input_shape[:2] + [h_out, w_out]
+        if isinstance(module, nn.Linear):
+            module: nn.Linear = module
+            return input_shape[:-1] + module.out_features
+        if isinstance(module, nn.Sequential):
+            for submodule in module:
+                input_shape = Stacker.get_output_shape(input_shape, submodule)
+            return input_shape
+        if isinstance(module, (nn.ReLU, nn.Tanh, nn.Sigmoid, nn.ELU)):
+            return input_shape
+        else:
+            raise Exception("module not supported")

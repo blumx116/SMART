@@ -8,18 +8,17 @@ import torch
 import torch.nn as nn
 from torch.nn.parameter import Parameter
 import torch.optim as optim
-from torch.utils.tensorboard import SummaryWriter
 
 from agent.evaluator import IVModel
+from env import IEnvironment
 from env.mazeworld import Point, MazeWorld, State, OptionData, Reward, Action
-from misc.typevars import Option, Environment
+from misc.typevars import Option
 
 class MazeworldVModel(IVModel[State, Reward, Option[OptionData]]):
     def __init__(self, xdim: int, ydim: int, settings: int):
         self.env : MazeWorld = None 
         self.input_dims: List[int] = (1, xdim, ydim, 4)
         self.device: torch.device = settings['device']
-        self.tensorboard: SummaryWriter = settings['tensorboard']
 
         self.loss: nn.modules.loss = nn.MSELoss()
 
@@ -55,7 +54,7 @@ class MazeworldVModel(IVModel[State, Reward, Option[OptionData]]):
 
 
     def reset(self, 
-            env: Environment[State, Action, Reward],
+            env: IEnvironment[State, Action, Reward],
             random_seed: Union[int, RandomState] = None) -> None:
         self.env = env
 

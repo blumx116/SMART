@@ -1,32 +1,22 @@
-# from env.minigrid.wrappers import OnehotWrapper, Onehot2PointWrapper
-
 import gym
-import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-from gym_minigrid import register
 from gym_minigrid.wrappers import FullyObsWrapper, ImgObsWrapper
 
+from agent import SMARTAgent
+from agent.memory import CompleteMemory
+from agent.planning_terminator import DepthPlanningTerminator
 from env.minigrid.wrappers import OnehotWrapper, find, onehot2directedpoint
-from env.minigrid import MinigridBacktrackingAgent
+from env.minigrid import MinigridBacktrackingAgent, SimpleMinigridGenerator
 from misc.typevars import Option
-"""
-env = gym.make("MiniGrid-LavaGapS5-v0")
-env = FullyObsWrapper(env)
-env = ImgObsWrapper(env)
-env = OnehotWrapper(env)
-env = Onehot2PointWrapper(env)
-state = env.reset()
-state2 = env.step(0)
-state3 = env.step(1)
-
-env.render('human')
-state = env.reset()
-print()
-"""
 
 states = []
 initials = []
+
+settings = {
+    'random' : 0
+}
+
 env = gym.make("MiniGrid-SimpleCrossingS9N2-v0")
 env.seed(10)
 env = FullyObsWrapper(env)
@@ -35,7 +25,12 @@ env = OnehotWrapper(env)
 
 env.render()
 
-agent = MinigridBacktrackingAgent()
+low_level_agent = MinigridBacktrackingAgent()
+evaluator =
+generator = SimpleMinigridGenerator()
+planning_terminator = DepthPlanningTerminator(max_depth=2)
+memory = CompleteMemory(max_length=100000)
+high_level_agent = SMARTAgent()
 
 state = env.reset()
 goal_point = find(state, 'Goal')

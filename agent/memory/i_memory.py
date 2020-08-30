@@ -4,13 +4,14 @@ from typing import Union, Generic, List
 from numpy.random import RandomState
 
 from data_structures.trees import Node
+from env import IEnvironment
 from misc.typevars import State, Action, Reward, OptionData
-from misc.typevars import Option, Transition, Trajectory, Environment, TrainSample
+from misc.typevars import Option, Transition, Trajectory, TrainSample
 
 class IMemory(ABC, Generic[State, Action, Reward, OptionData]):
     @abstractmethod
     def reset(self, 
-            env: Environment[State, Action, Reward], 
+            env: IEnvironment[State, Action, Reward],
             root_option: Node[Option[OptionData]], 
             random_seed: Union[int, RandomState] = None) -> None:
         pass

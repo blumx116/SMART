@@ -5,7 +5,6 @@ import matplotlib.animation as animation
 import numpy as np
 import torch 
 import torchvision
-from torch.utils.tensorboard import SummaryWriter
 
 from agent.simple import BacktrackingMazeAgent, Grid2PointWrapper
 from agent import SMARTAgent, IAgent

@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 import numpy as np
 
@@ -12,14 +12,19 @@ from misc.typevars import Option
 class SimpleMinigridGenerator(IGenerator[OneHotImg, Action, Reward, Point]):
     def generate(self,
             state: OneHotImg,
-            option: Option[Point]) -> List[Option[Point]]:
+            prev_option: Optional[Option[Point]],
+            parent_option: Option[Point]) -> List[Option[Point]]:
         xdim: int = state.shape[0]
         ydim: int = state.shape[0]
-        child_depth: int = option.depth + 1
+        depth: int = parent_option.depth
+        if prev_option is not None:
+            depth = max(prev_option.depth, depth)
+        child_depth: int = depth + 1
         result: List[Option[Point]]
         # not quite right, but haven't figured out good solution
         for x in range(xdim):
             for y in range(ydim):
                 point: Point = np.asarray([x, y], dtype=np.int8)
                 if tile_type(point) in ['Empty', 'Goal']:
-                    ...
+                    result.append(Option(point, child_depth))
+        return result

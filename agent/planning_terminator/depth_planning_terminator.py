@@ -3,7 +3,8 @@ from typing import List, Union, Optional
 from numpy.random import RandomState
 
 from . import IPlanningTerminator
-from misc.typevars import State, Action, Reward, Option, TrainSample, Environment, OptionData
+from env import IEnvironment
+from misc.typevars import State, Action, Reward, Option, TrainSample, OptionData
 
 class DepthPlanningTerminator(IPlanningTerminator[State, Action, Reward, OptionData]):
     def __init__(self, max_depth: int):
@@ -25,6 +26,6 @@ class DepthPlanningTerminator(IPlanningTerminator[State, Action, Reward, OptionD
         pass
 
     def reset(self, 
-            env: Environment[State, Action, Reward], 
+            env: IEnvironment[State, Action, Reward],
             random_seed: Union[int, RandomState] = None) -> None:
         pass

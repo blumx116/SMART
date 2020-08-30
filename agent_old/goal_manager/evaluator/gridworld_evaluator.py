@@ -5,7 +5,6 @@ import numpy as np
 import torch
 import torch.nn as nn 
 import torch.optim as optim 
-from torch.utils.tensorboard import SummaryWriter
 
 from agent.memory import IMemory
 from agent.memory.trees import Node
@@ -20,7 +19,6 @@ amax = lambda s: np.unravel_index(np.argmax(s[:,:,-1]), s[:,:,-1].shape)
 class GridworldEvaluator:
     def __init__(self, xdim:int, ydim:int, settings: Dict[str, Any], gamma: float):
         self.device : torch.device = settings["device"]
-        self.tensorboard : SummaryWriter = settings["tensorboard"]
 
         self.context: torch.Tensor = None 
         self.loss: nn.modules.loss = nn.MSELoss()
@@ -139,7 +137,6 @@ class GridworldEvaluator:
         # returns chosen goal and scores
         scores: np.ndarray = self.score_subgoals(possible_subgoals, state, goal_node.value, network)
         probabilities: np.ndarray = self.selection_probabilities(possible_subgoals, scores, state, goal_node.value)
-        self.tensorboard.add_scalar('entropy', entropy(probabilities))
         self._log_probability_image(possible_subgoals, probabilities)
         chosen_idx: int = np.random.choice(range(len(probabilities)), p=probabilities)
         return possible_subgoals[chosen_idx],  scores
@@ -207,19 +204,19 @@ class GridworldEvaluator:
         for sample in samples:
             print(f"sample: {amax(sample.initial_state)}=>{amax(sample.goal.value)} (len: {len(sample.subgoal_trajectory)+len(sample.goal_trajectory)})")
         truths: torch.Tensor = torch.cat(truths)
-        self.tensorboard.add_histogram('True Trajectory Values', truths, step)
+        # self.tensorboard.add_histogram('True Trajectory Values', truths, step)
         preds: torch.Tensor = torch.cat(preds)
-        self.tensorboard.add_histogram('Predicted Trajectory Values', preds, step)
+        # self.tensorboard.add_histogram('Predicted Trajectory Values', preds, step)
         # torch.Tensor[float, device] : [len(samples), ]
         loss = self.loss(preds, truths)
-        self.tensorboard.add_histogram('Evaluator Loss', loss, step)
+        # self.tensorboard.add_histogram('Evaluator Loss', loss, step)
         print(f"loss: {loss}")
         loss.backward()
         self.optimizer.step()
         self.optimizer.zero_grad()
 
-        self.tensorboard.add_scalar('beta', self.beta, step)
-        self.tensorboard.add_scalar('gamma', self.gamma, step)
+        # self.tensorboard.add_scalar('beta', self.beta, step)
+        # self.tensorboard.add_scalar('gamma', self.gamma, step)
 
         #double check
         preds = [] 
@@ -230,6 +227,6 @@ class GridworldEvaluator:
                     goal=sample.goal,
                     network="inner"))
         preds: torch.Tensor = torch.cat(preds)
-        self.tensorboard.add_histogram('Predicted Trajectory Values - after Step', preds, step)
+        # self.tensorboard.add_histogram('Predicted Trajectory Values - after Step', preds, step)
         loss = self.loss(preds, truths)
         self.optimizer.zero_grad()

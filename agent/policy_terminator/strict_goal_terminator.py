@@ -3,8 +3,9 @@ from typing import Callable, Union, List
 from numpy.random import RandomState
 
 from . import IPolicyTerminator
+from env import IEnvironment
 from misc.typevars import State, Action, Reward, Option, OptionData
-from misc.typevars import TrainSample, Trajectory, Environment
+from misc.typevars import TrainSample, Trajectory
 
 
 
@@ -13,7 +14,7 @@ class StrictGoalTerminator(IPolicyTerminator[State, Action, Reward, OptionData])
         self.goal_achieved: Callable[[State, Option], float] = goal_achieved
 
     def reset(self,
-            env: Environment[State, Action, Reward],
+            env: IEnvironment[State, Action, Reward],
             random_seed: Union[int, RandomState] = None) -> None:
         pass
 

@@ -3,9 +3,10 @@ from typing import Union, Dict, List, Optional
 from numpy.random import RandomState 
 
 from agent.memory import IMemory
-from data_structures.trees import Node, Tree 
+from data_structures.trees import Node, Tree
+from env import IEnvironment
 from misc.typevars import State, Action, Reward, Option, OptionData
-from misc.typevars import Trajectory, Environment, Transition, TrainSample
+from misc.typevars import Trajectory, Transition, TrainSample
 from misc.utils import optional_random, bool_random_choice, array_random_choice
 
 
@@ -33,13 +34,13 @@ class CompleteMemory(IMemory[State, Action, Reward, OptionData]):
         self.current_option: Node[Option] = None
 
     def reset(self,
-            env: Environment[State, Action, Reward],
+            env: IEnvironment[State, Action, Reward],
             root_option: Node[Option[OptionData]],
             random_seed: Union[int, RandomState] = None) -> None:
         """
             Parameters
             ----------
-            env: Environment
+            env: IEnvironment
             root_option: Node[Option]
             random_seed: Union[int, RandomState] = None
         """

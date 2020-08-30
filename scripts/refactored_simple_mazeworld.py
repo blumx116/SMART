@@ -4,7 +4,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation 
 import torch
-from torch.utils.tensorboard import SummaryWriter
 
 from agent import SMARTAgent, IOptionBasedAgent
 from agent.evaluator import IEvaluator, IVModel, IQModel
@@ -19,7 +18,6 @@ from misc.typevars import State, Action, Reward, Transition, Option
 
 
 settings = {
-    'tensorboard' : SummaryWriter(),
     'device' : torch.device("cuda:0"),
     'random' : 3
 }

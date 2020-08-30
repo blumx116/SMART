@@ -3,16 +3,16 @@ from typing import Generic, Union
 
 from numpy.random import RandomState
 
+from env import IEnvironment
 from misc.typevars import State, Action, Reward, OptionData, Option
-from misc.typevars import Environment, Transition
+from misc.typevars import Transition
 
-Environment = Environment[State, Action, Reward]
 Option = Option[OptionData]
 
 class IOptionBasedAgent(ABC, Generic[State, Action, Reward, OptionData]):
     @abstractmethod
     def reset(self, 
-            env: Environment[State, Action, Reward],
+            env: IEnvironment[State, Action, Reward],
             root_option: Option[OptionData],
             random_seed: Union[int, RandomState] = None) -> None:
         pass 

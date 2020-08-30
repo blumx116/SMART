@@ -2,7 +2,6 @@ from typing import Dict, Any, Union, Generic, List, Optional
 
 import numpy as np 
 from numpy.random import RandomState
-from torch.utils.tensorboard import SummaryWriter
 
 from agent import IOptionBasedAgent
 from agent.evaluator import IEvaluator
@@ -11,8 +10,9 @@ from agent.planning_terminator import IPlanningTerminator
 from agent.policy_terminator import IPolicyTerminator
 from agent.memory import IMemory
 from data_structures.trees import Tree, Node
+from env import IEnvironment
 from misc.typevars import State, Action, Reward, Option, OptionData
-from misc.typevars import Environment, TrainSample, Transition, Trajectory
+from misc.typevars import TrainSample, Transition, Trajectory
 from misc.utils import optional_random, bool_random_choice
 
 class SMARTAgent(Generic[State, Action, Reward, OptionData]):
@@ -33,7 +33,6 @@ class SMARTAgent(Generic[State, Action, Reward, OptionData]):
         self.low_level: IOptionBasedAgent[State, Action, Reward, OptionData] = low_level
         self.memory: IMemory[State, Action, Reward, OptionData] = memory 
 
-        self.tensorboard: SummaryWriter = settings['tensorboard']
         self.random: RandomState = optional_random(settings['random'])
 
         self.current_option_node: Node[Option[OptionData]] = None
@@ -51,14 +50,14 @@ class SMARTAgent(Generic[State, Action, Reward, OptionData]):
         self.low_level.optimize(step)
 
     def reset(self, 
-            env: Environment[State, Action, Reward], 
+            env: IEnvironment[State, Action, Reward],
             root_option: Option[OptionData], 
             random_seed: Union[int, RandomState] = None) -> None:
         """
             Reset the agent to function in a new environment/episode.
             Parameters
             ----------
-            env: Environment[State, Action, Reward]
+            env: IEnvironment[State, Action, Reward]
                 the environment the agent is about to act in
             root_option: Option
                 the base option that the agent begins executing

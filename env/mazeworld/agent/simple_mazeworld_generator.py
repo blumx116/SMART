@@ -3,17 +3,18 @@ from typing import List, Union
 from numpy.random import RandomState
 
 from agent.generator import IGenerator
+from env import IEnvironment
 from env.mazeworld.mazeworld_old import State, Action, Reward, OptionData
-from misc.typevars import Environment, Option, TrainSample
+from misc.typevars import Option, TrainSample
 
 # note Option == Point
 
 class SimpleMazeworldGenerator(IGenerator[State, Action, Reward, OptionData]):
     def __init__(self):
-        self.env: Environment[State, Action, Reward] = None
+        self.env: IEnvironment[State, Action, Reward] = None
 
     def reset(self,
-            env: Environment[State, Action, Reward],
+            env: IEnvironment[State, Action, Reward],
             random_seed: Union[int, RandomState] = None) -> None:
         self.env = env 
 

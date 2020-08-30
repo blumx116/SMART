@@ -224,14 +224,17 @@ class Stacker:
                  input_shape: Iterable[int]):
         self.input_shape: List[int] = list(input_shape)
         self.output_shape: List[int] = self.input_shape.copy()
-        self.model: nn.Sequential = nn.Sequential()
+        self.layers: List[nn.Module] = [ ]
+        self.model: Optional[nn.Sequential] = None
 
     def stack(self, module: nn.Module) -> List[int]:
-        self.model.append(module)
+        self.layers.append(module)
         self.output_shape = Stacker.get_output_shape(self.output_shape, module)
         return self.output_shape
 
-    def get(self, device: torch.device) -> Tuple[nn.Sequential, List[int]]:
+    def get(self, device: torch.device = None) -> Tuple[nn.Sequential, List[int]]:
+        if self.model is None:
+            self.model = nn.Sequential(*self.layers)
         model = self.model.to(device) if device is not None else self.model
         return model, self.output_shape
 
@@ -244,17 +247,19 @@ class Stacker:
             assert len(input_shape) == 4
 
             def conv_shape(shape: List[int], module: nn.Conv2d, offset: int = 0):
+                def tupify(v: Union[int, Tuple[int, int]]) -> Tuple[int, int]:
+                    return v if isinstance(v, tuple) else (v, v)
                 input = shape[2 + offset]
-                out = input + (2 * module.padding[offset]) - (
-                            module.dilation[offset] * (module.kernel_size[offset] - 1))
-                out = np.floor((out - 1) / module.stride[offset]) + 1
+                out = input + (2 * tupify(module.padding)[offset]) - (
+                            tupify(module.dilation)[offset] * (tupify(module.kernel_size)[offset] - 1))
+                out = np.floor((out - 1) / tupify(module.stride)[offset]) + 1
                 return int(out)
             h_out = conv_shape(input_shape, module, offset=0)
             w_out = conv_shape(input_shape, module, offset=1)
             return input_shape[:2] + [h_out, w_out]
         if isinstance(module, nn.Linear):
             module: nn.Linear = module
-            return input_shape[:-1] + module.out_features
+            return input_shape[:-1] + [module.out_features]
         if isinstance(module, nn.Sequential):
             for submodule in module:
                 input_shape = Stacker.get_output_shape(input_shape, submodule)

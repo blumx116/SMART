@@ -16,13 +16,14 @@ class EncoderModel(nn.Module):
             n_features: int,
             num_inputs: int,
             device: torch.device):
+        super().__init__()
         self.num_inputs: int = num_inputs
         self.image_shape: Tuple[int, int] = image_shape
         self.device: torch.device = device
-        stacker = Stacker(input_shape=image_shape)
-        stacker.stack(nn.Conv2d(1, out_channels=n_features, kernel_size=(3, 3), padding=1))
+        stacker = Stacker(input_shape=[-1, image_shape[0], image_shape[1], num_inputs])
+        stacker.stack(nn.Conv2d(num_inputs, out_channels=n_features, kernel_size=(3, 3), padding=1))
         stacker.stack(nn.ReLU())
-        self.model, self.output_dim = stacker.get()
+        self.model, self.output_dim = stacker.get(self.device)
 
     def encode(self, option: Option[OptionData]) -> torch.Tensor:
         """
@@ -48,58 +49,66 @@ class EncoderModel(nn.Module):
         return self.model(x)
 
 def StateEncoder(
-        image_shape: Tuple[int, int, int],
+        image_shape: Tuple[int, int, int, int],
         n_features: int,
         n_layers: int,
-        device: torch.device) -> nn.Sequential:
+        device: torch.device) -> Tuple[nn.Sequential, List[int]]:
     """
 
-    :param image_shape: (imx, imy, n_channels)
+    :param image_shape: (batch, channels, imx, imy)
     :param n_features: number of channels at each layer (besides input)
     :param n_layers: number of layers, 1 gives linear convolution
     :param device: device for model to be placed on
     :return: Model [dev, f32] : image_shape => [dev, f32] : [imx, imy, n_features]
     """
     assert n_layers > 0
-    model: nn.Sequential = nn.Sequential()
-    in_dims = [image_shape[2]] + [n_features for _ in range(n_layers -1)]
-    out_dims = [n_features for _ in range(n_layers)]
-
-    for idx, (indim, outdim) in enumerate(zip(in_dims, out_dims)):
-        model.append(nn.Conv2d(indim, outdim, kernel_size=(3, 3), padding=1))
+    stacker = Stacker(image_shape)
+    shape: List[int] = image_shape
+    for idx in range(n_layers):
+        stacker.stack(nn.Conv2d(image_shape[1], n_features, kernel_size=(3,3), padding=1))
 
         if idx != n_layers - 1:
-            # if not last layer
-            model.append(nn.ReLU())
+            shape = stacker.stack(nn.ReLU())
 
-    return model.to(device)
+    return stacker.get(device)
 
-def ValueModel(
-        input_shape: Tuple[int, int, int],
+def SharedModel(
+        input_shape: Tuple[int, int, int, int],
         n_feature: int,
         n_layers: int,
         device: torch.device):
+    """
+
+    :param input_shape: [batch, channels, x, y]
+    :param n_feature: num features at each layer
+    :param n_layers: num layers
+    :param device: torch.device
+    :return: model: nn.Sequential, shape: List[int]
+    """
     stacker = Stacker(input_shape)
     shape: List[int] = list(input_shape)
-    for _ in range(n_layers):
-        shape = stacker.stack(nn.Conv2d(shape[1], n_feature, kernel_size=(3,3)))
-        shape = stacker.stack(nn.MaxPool2d(kernel_size=(2, 2), stride=2))
-        shape = stacker.stack(nn.ReLU())
+    shape = stacker.stack(nn.Conv2d(shape[1], n_feature, kernel_size=(3,3)))
+    shape = stacker.stack(nn.MaxPool2d(kernel_size=(2, 2), stride=2))
+    shape = stacker.stack(nn.ReLU())
     shape = stacker.stack(nn.Flatten())
-    stacker.stack(nn.Linear(shape[1], 1))
+    for idx in range(n_layers):
+        features: int = n_feature if idx != n_layers - 1 else 1
+        shape = stacker.stack(nn.Linear(shape[1], features))
+        if idx != n_layers - 1:
+            shape = stacker.stack(nn.ReLU())
     return stacker.get(device)
 
 class ValueModel(nn.Module):
     def __init__(self,
             n_options_input: int,
-            image_shape: List[int],
+            image_shape: List[int], # [batch, channels, x, y]
             n_feature: int,
             n_layers: int,
             device: torch.device):
-        self.option_encoder: nn.Sequential = EncoderModel(image_shape[:2], n_feature * 2, n_options_input, device)
-        self.state_encoder: nn.Sequential = StateEncoder(image_shape, n_feature, n_layers, device)
-        state_embed_size: List[int] = Stacker.get_output_shape(image_shape, self.state_encoder)
-        self.value_net: nn.Sequential = ValueModel(state_embed_size, n_feature, n_layers, device)
+        super().__init__()
+        self.option_encoder: nn.Sequential = EncoderModel(image_shape[2:], n_feature * 2, n_options_input, device)
+        self.state_encoder, state_embed_size = StateEncoder(image_shape, n_feature, n_layers, device)
+        self.value_net,  self.output_shape = SharedModel(state_embed_size, n_feature, n_layers, device)
         self.n_features: int = n_feature
 
     def forward(self, state: State, options: List[Option]) -> torch.Tensor:

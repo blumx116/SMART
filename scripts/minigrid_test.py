@@ -22,7 +22,9 @@ settings = {
     'device' : torch.device("cuda:0")
 }
 
-env = gym.make("MiniGrid-SimpleCrossingS9N2-v0")
+N_EPISODES = 10
+env = gym.make('MiniGrid-LavaGapS7-v0')
+# env = gym.make("MiniGrid-SimpleCrossingS9N2-v0")
 env.seed(settings['random'])
 env = FullyObsWrapper(env)
 env = ImgObsWrapper(env)
@@ -79,21 +81,22 @@ def get_option_tree(agent):
         option_node = option_node.parent
     return result
 
-
-state = env.reset()
-goal_point = find(state, 'Goal')
-option = Option(goal_point, depth=0)
-agent.reset(env, option, random_seed=3)
 images = []
-images.append([plt.imshow(env.render('rgb_array'), animated=True)])
-done = False
-while not done:
-    action = agent.act(state, option)
-    state, reward, done, _ = env.step(action)
-    options = get_option_tree(agent)
-    print(f"@{onehot2directedpoint(state)} : {reward} => {options}")
-    rendered = visualize(env.render('rgb_array'), options)
-    images.append([plt.imshow(rendered, animated=True)])
+for _ in range(N_EPISODES):
+    state = env.reset()
+    goal_point = find(state, 'Goal')
+    option = Option(goal_point, depth=0)
+    agent.reset(env, option, random_seed=3)
+
+    images.append([plt.imshow(env.render('rgb_array'), animated=True)])
+    done = False
+    while not done:
+        action = agent.act(state, option)
+        state, reward, done, _ = env.step(action)
+        options = get_option_tree(agent)
+        print(f"@{onehot2directedpoint(state)} : {reward} => {options}")
+        rendered = visualize(env.render('rgb_array'), options)
+        images.append([plt.imshow(rendered, animated=True)])
 
 fig = plt.figure()
 ani = animation.ArtistAnimation(fig, images, interval=100,blit=True, repeat=True)

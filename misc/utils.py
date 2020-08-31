@@ -254,9 +254,10 @@ class Stacker:
                             tupify(module.dilation)[offset] * (tupify(module.kernel_size)[offset] - 1))
                 out = np.floor((out - 1) / tupify(module.stride)[offset]) + 1
                 return int(out)
-            h_out = conv_shape(input_shape, module, offset=0)
-            w_out = conv_shape(input_shape, module, offset=1)
-            return input_shape[:2] + [h_out, w_out]
+            h_out: int = conv_shape(input_shape, module, offset=0)
+            w_out: int = conv_shape(input_shape, module, offset=1)
+            out_dims: int = module.out_channels if isinstance(module, nn.Conv2d) else input_shape[1]
+            return [input_shape[0], out_dims, h_out, w_out]
         if isinstance(module, nn.Linear):
             module: nn.Linear = module
             return input_shape[:-1] + [module.out_features]

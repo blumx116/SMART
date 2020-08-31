@@ -109,7 +109,7 @@ class SMARTAgent(Generic[State, Action, Reward, OptionData]):
         if not self._is_actionable_(self.current_option_node):
             self.plan(state, self.current_option_node)
             self._add_actionable_option_(self.current_option_node)
-        self.low_level.act(state, self.current_option_node.value)
+        return self.low_level.act(state, self.current_option_node.value)
 
     def plan(self, 
             state: State, 
@@ -166,6 +166,7 @@ class SMARTAgent(Generic[State, Action, Reward, OptionData]):
         new_option_node: Node[Option[OptionData]] = \
             Tree.add_left(new_option, parent_node)
         self.memory.add_suboption(new_option_node, parent_node)
+        self.current_option_node = new_option_node
         return new_option_node
 
     def _should_stop_planning_(self, 

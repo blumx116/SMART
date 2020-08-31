@@ -90,7 +90,7 @@ class AEvaluator(IEvaluator[State, Action, Reward, OptionData]):
                 the option that was chosen to pursue next
         """
         scores: List[int] = list(map(
-            lambda possibility: self.q_model.forward(state, possibility, option),
+            lambda possibility: self.q_model.forward(state, prev_option,  possibility, parent_option),
             possibilities))
         scores: np.ndarray = np.asarray(scores, dtype=float)
         # np.ndarray[float]: [len(possibilities), ]

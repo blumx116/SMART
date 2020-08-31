@@ -62,7 +62,7 @@ class OnehotWrapper(ObservationWrapper, IEnvironment[OneHotImg, Action, Reward],
     def __init__(self,
                  inner: IEnvironment[RawState, Action, Reward]):
         super().__init__(inner)
-        self.observation_space: Space = spaces.Box(low=0, high=1, shape=(self.height, self.width, 18))
+        self.observation_space: Space = spaces.Box(low=0, high=1, shape=(self.height, self.width, 11))
 
 
     def observation(self, observation: RawState) -> OneHotImg:

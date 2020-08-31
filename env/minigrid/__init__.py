@@ -3,3 +3,4 @@ from .wrappers import OnehotWrapper, onehot2directedpoint
 from .minigrid_backtracking_agent import MinigridBacktrackingAgent
 from .minigrid_generator import SimpleMinigridGenerator
 from .make_minigrid_models import VModel, QModel
+from .minigrid_evaluator import Evaluator

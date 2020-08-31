@@ -29,12 +29,15 @@ class EncoderModel(nn.Module):
         """
         :param option: Option[Point], with depth
         :return: one-hot as image, with depth added to all pixels
-            torch.Tensor[dev, f32] : [im_x, im_y, 1]
+            torch.Tensor[dev, f32] : [1, im_x, im_y,]
         """
-        result: torch.zeros(self.image_shape + (1,), dtype=torch.float32, device=self.device)
-        # result : Tensor[dev, f32] : [im_x, im_y, 1]
-        result[option.value] = 1.
-        result += option.depth
+        result: torch.Tensor = torch.zeros(self.image_shape, dtype=torch.float32, device=self.device)
+        # result : Tensor[dev, f32] : [im_x, im_y]
+        if option is not None:
+            result[tuple(option.value)] = 1.
+            result += option.depth
+        result = result.unsqueeze(0)
+        # [1, x, y]
         return result
 
     def forward(self, options: List[Option[OptionData]]) -> torch.Tensor:
@@ -45,7 +48,9 @@ class EncoderModel(nn.Module):
         """
         assert len(options) == self.num_inputs
         encodings = [self.encode(option) for option in options]
-        x = torch.cat(encodings, dim=2)
+        x = torch.cat(encodings, dim=0)
+        # 【channels, x, y]
+        x = x.unsqueeze(0) #add batchdim
         return self.model(x)
 
 def StateEncoder(
@@ -65,7 +70,7 @@ def StateEncoder(
     stacker = Stacker(image_shape)
     shape: List[int] = image_shape
     for idx in range(n_layers):
-        stacker.stack(nn.Conv2d(image_shape[1], n_features, kernel_size=(3,3), padding=1))
+        stacker.stack(nn.Conv2d(shape[1], n_features, kernel_size=(3, 3), padding=1))
 
         if idx != n_layers - 1:
             shape = stacker.stack(nn.ReLU())
@@ -110,14 +115,18 @@ class ValueModel(nn.Module):
         self.state_encoder, state_embed_size = StateEncoder(image_shape, n_feature, n_layers, device)
         self.value_net,  self.output_shape = SharedModel(state_embed_size, n_feature, n_layers, device)
         self.n_features: int = n_feature
+        self.device: torch.device = device
 
     def forward(self, state: State, options: List[Option]) -> torch.Tensor:
         option_embedding: torch.Tensor = self.option_encoder(options)
         # Tensor : [batch, imx, imy, n_features * 2]
+        state: torch.Tensor = torch.from_numpy(state)  # [x, y, channels]
+        state = state.to(self.device).float()  # torch.Tensor[dev, f32] : [x, y, channels]
+        state = state.permute((2, 0, 1)).unsqueeze(0)  # [batch=1, channels, x, y]
         state_embedding: torch.Tensor = self.state_encoder(state)
         # Tensor: [batch, imx, imy, n_features]
-        combined: torch.Tensor = (option_embedding[:, :, :, :self.n_features] * state_embedding)
-        combined += option_embedding[:, :, :, self.n_features:]
+        combined: torch.Tensor = (option_embedding[:, :self.n_features, :, :] * state_embedding)
+        combined += option_embedding[:, self.n_features:, :, :]
         # Tensor: [batch, imx, imy, n_features]
         return self.value_net(combined)
 

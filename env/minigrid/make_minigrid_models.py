@@ -119,15 +119,15 @@ class ValueModel(nn.Module):
 
     def forward(self, state: State, options: List[Option]) -> torch.Tensor:
         option_embedding: torch.Tensor = self.option_encoder(options)
-        # Tensor : [batch, imx, imy, n_features * 2]
+        # Tensor : [batch, n_features*2, imx, imy]
         state: torch.Tensor = torch.from_numpy(state)  # [x, y, channels]
         state = state.to(self.device).float()  # torch.Tensor[dev, f32] : [x, y, channels]
         state = state.permute((2, 0, 1)).unsqueeze(0)  # [batch=1, channels, x, y]
         state_embedding: torch.Tensor = self.state_encoder(state)
-        # Tensor: [batch, imx, imy, n_features]
+        # Tensor: [batch, n_features, imx, imy]
         combined: torch.Tensor = (option_embedding[:, :self.n_features, :, :] * state_embedding)
         combined += option_embedding[:, self.n_features:, :, :]
-        # Tensor: [batch, imx, imy, n_features]
+        # Tensor: [batch, n_features, imx, imy,]
         return self.value_net(combined)
 
 class QModel(ValueModel, IQModel[State, Reward, OptionData]):

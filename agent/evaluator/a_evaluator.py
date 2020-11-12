@@ -89,14 +89,38 @@ class AEvaluator(IEvaluator[State, Action, Reward, OptionData]):
             chosen: Option
                 the option that was chosen to pursue next
         """
-        scores: List[int] = list(map(
-            lambda possibility: self.q_model.forward(state, prev_option,  possibility, parent_option),
+        probabilities: np.ndarray = self._selection_probabilities_(
+            state, possibilities, prev_option, parent_option,
+            normalize=False)
+        # np.ndarray[float]: [len(possibilities), ]
+        return array_random_choice(possibilities, probabilities, self.random)
+
+    def _score_possibilities_(self,
+                              state: State,
+                              possibilities: List[Option[OptionData]],
+                              prev_option: Optional[Option[OptionData]],
+                              parent_option: Option[OptionData]) -> List[float]:
+        return list(map(
+            lambda possibility: self.q_model.forward(state, prev_option, possibility, parent_option),
             possibilities))
+
+    def _selection_probabilities_(self,
+                                  state: State,
+                                  possibilities: List[Option[OptionData]],
+                                  prev_option: Optional[Option[OptionData]],
+                                  parent_option: Option[OptionData],
+                                  normalize: bool = False) -> np.ndarray:
+        scores: List[float] = self._score_possibilities_(
+            state, possibilities, prev_option, parent_option)
         scores: np.ndarray = np.asarray(scores, dtype=float)
         # np.ndarray[float]: [len(possibilities), ]
         probabilities: np.ndarray = np.exp(self.get_beta(self.step) * scores)
-        # np.ndarray[float]: [len(possibilities), ]
-        return array_random_choice(possibilities, probabilities, self.random)
+        if normalize:
+            assert np.all(probabilities > 0)
+            probabilities /= probabilities.sum()
+        return probabilities
+
+
 
     def _get_v_as_target_(self,
             state: State,

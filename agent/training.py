@@ -1,44 +1,18 @@
 from itertools import cycle, count
 import tempfile
+from typing import Iterable, Dict, Any, List
 import os
 
 import matplotlib.pyplot as plt
-import moviepy.editor as mpy
+from matplotlib.figure import Figure
 import numpy as np
-import tensorflow as tf
-from tensorflow import summary
+import torch
+from torch.utils.tensorboard import SummaryWriter
 
+from agent import SMARTAgent
+from env.minigrid.types import Point
 from env.minigrid.wrappers import find, onehot2directedpoint
 from misc.typevars import Option, Transition
-
-
-def _encode_gif_bytes_(im_thwc, fps=4):
-  with tempfile.NamedTemporaryFile() as f: fname = f.name + '.gif'
-  clip = mpy.ImageSequenceClip(list(im_thwc), fps=fps)
-  clip.write_gif(fname, verbose=False, progress_bar=False)
-
-  with open(fname, 'rb') as f: enc_gif = f.read()
-  os.remove(fname)
-
-  return enc_gif
-
-def gif_summary(im_thwc, fps=4):
-  """
-  Given a 4D numpy tensor of images (TxHxWxC), encode a gif into a Summary protobuf.
-  NOTE: Tensor must be in the range [0, 255] as opposed to the usual small float values.
-  """
-  # create a tensorflow image summary protobuf:
-  thwc = im_thwc.shape
-  im_summ = tf.compat.v1.Summary.Image()
-  im_summ.height = thwc[1]
-  im_summ.width = thwc[2]
-  im_summ.colorspace = 3 # fix to 3 for RGB
-  im_summ.encoded_image_string = _encode_gif_bytes_(im_thwc, fps)
-
-  # create a serialized summary obj:
-  summ = tf.compat.v1.Summary()
-  summ.value.add(image=im_summ)
-  return summ.SerializeToString()
 
 def _get_seeds_(settings):
     if 'seed' in settings:
@@ -81,7 +55,7 @@ def train(agent, env, settings, testfn=None, vizfn=None, savefn=None):
     test_after_episode = False
     viz_after_episode = False
 
-    for ep in settings['N_EPISODES']:
+    for ep in range(settings['N_EPISODES']):
         env.seed(next(seeds))
         state = env.reset()
         goal_point = find(state, 'Goal')
@@ -96,10 +70,12 @@ def train(agent, env, settings, testfn=None, vizfn=None, savefn=None):
 
             ts += 1
 
-            if settings['TEST_FREQ'] is not None and ts % settings['TEST_FREQ']:
+            if settings['TEST_FREQ'] is not None and ts % settings['TEST_FREQ'] == 0:
                 test_after_episode = True
-            if settings['VIZ_FREQ'] is not None and  ts % settings['VIZ_FREQ']:
+            if settings['VIZ_FREQ'] is not None and ts % settings['VIZ_FREQ'] == 0:
                 viz_after_episode = True
+
+            # agent.optimize()
 
         if test_after_episode:
             testfn(agent, ep, ts)
@@ -111,14 +87,94 @@ def train(agent, env, settings, testfn=None, vizfn=None, savefn=None):
     if savefn is not None:
         savefn(agent)
 
-def test(agent, ep, ts):
-    ...
-
-def make_visualize(env, writer, seeds=None):
+def make_simple_minigrid_test(
+        env,
+        writer: SummaryWriter,
+        seeds: Iterable[int] = None):
     if seeds is None:
         seeds = [None] * 5
     seeds = list(seeds)
-    def visualize(agent, ep, ts):
+
+    def test(agent: SMARTAgent, ep, ts):
+        rewards = [0] * len(seeds)
+        for i, seed in enumerate(seeds):
+            env.seed(seed)
+            state = env.reset()
+
+            goal_point = find(state, 'Goal')
+            option = Option(goal_point, depth=0)
+            agent.reset(env, option, random_seed=3)
+
+            done = False
+
+            while not done:
+                action = agent.act(state)
+                state, reward, done, info = env.step(action)
+
+                rewards[seed] += reward
+
+        for i, seed in enumerate(seeds):
+            writer.add_scalar(f"Test Reward: {seed}", rewards[i], global_step=ts)
+
+    return test
+
+def make_mesh_grid(
+        possibilities: List[Option[Point]],
+        probabilities: List[float]) -> (np.ndarray, ) * 3:
+    xy = np.vstack([p.value for p in possibilities])
+    # np.ndarray[int8] : [n_possibilities, 2]
+    maxes = np.max(xy, axis=0)
+    # np.ndarray[int8] : [2,]
+    mins = np.min(xy, axis=0)
+    # np.ndarray[int8]
+    zz = np.zeros(shape=1+maxes-mins, dtype=np.float)
+    for option, proba in zip(possibilities, probabilities):
+        pos: np.ndarray = option.value - mins
+        zz[pos] = proba
+    xs = np.arange(mins[0], maxes[0]+1, step=1)
+    ys = np.arange(mins[1], maxes[1]+1, step=1)
+    xx, yy = np.meshgrid(xs, ys)
+    return xx, yy, zz
+
+def render_mesh(
+        xx: np.ndarray,
+        yy: np.ndarray,
+        zz: np.ndarray) -> plt.Figure:
+    fig: Figure = plt.figure()
+    ax1 = fig.add_subplot(121, projection='3d')
+    ax2 = fig.add_subplot(122, projection='3d')
+    ax2.view_init(30, 135)
+    ax1.plot_surface(xx, yy, zz, alpha=0.3, cmap='magma')
+    ax2.plot_surface(xx, yy, zz, alpha=0.3, cmap='magma')
+    return fig
+
+
+def visualize_decision(
+        agent: SMARTAgent,
+        state,
+        writer: SummaryWriter,
+        tag: str,
+        ep: int=None,
+        ts: int=None) -> None:
+    prev_option = agent._prev_option_()
+    parent_option = agent.current_option_node.value
+    possibilities = agent.generator.generate(
+        state, prev_option, parent_option)
+    probabilities = agent.evaluator._selection_probabilities_(
+        state, possibilities, prev_option, parent_option)
+    xx, yy, zz = make_mesh_grid(possibilities, probabilities)
+    fig = render_mesh(xx, yy, zz)
+    writer.add_figure(tag, fig, global_step=ts)
+
+def make_visualize(env,
+                   writer: SummaryWriter, seeds=None):
+    if seeds is None:
+        seeds = [None] * 5
+    seeds = list(seeds)
+    def visualize(
+            agent: SMARTAgent,
+            ep: int,
+            ts: int):
         images = []
         for seed in seeds:
             if seed is not None:
@@ -128,7 +184,9 @@ def make_visualize(env, writer, seeds=None):
             option = Option(goal_point, depth=0)
             agent.reset(env, option, random_seed=3)
 
-            images.append([plt.imshow(env.render('rgb_array'), animated=True)])
+            visualize_decision(agent, state, writer, f'likelihoods: {seed}', ep, ts)
+
+            images.append(env.render('rgb_array'))
             done = False
             while not done:
                 action = agent.act(state, option)
@@ -138,7 +196,35 @@ def make_visualize(env, writer, seeds=None):
                 rendered = _render_options_(env.render('rgb_array'), options)
                 images.append(rendered)
         gif = np.stack(images, 0)
-        gif = gif_summary(gif, fps=24)
-        with writer.as_default():
-            summary.experimental.write_raw_pb(gif, step=ts, name='wow gifs')
+        # np.ndarray [t, imx, imy, 3]
+        gif_tensor: torch.Tensor = torch.from_numpy(gif).type(torch.uint8).unsqueeze(0)
+        # torch.Tensor[uint8] [1, t, imx, imy, 3]
+        gif_tensor = gif_tensor.permute(0, 1, 4, 2, 3)
+        writer.add_video('sample trajectory', gif_tensor, global_step=ts)
     return visualize
+
+def summarize(agent, env,
+              settings: Dict[str, Any],
+              seeds: List[int],
+              writer: SummaryWriter):
+    rewards = [0] * len(seeds)
+    for i, seed in enumerate(seeds):
+        if seed is not None:
+            env.seed(seed)
+        state = env.reset()
+        goal_point = find(state, 'Goal')
+        option = Option(goal_point, depth=0)
+        agent.reset(env, option, random_seed=3)
+
+        done = False
+        while not done:
+            action = agent.act(state, option)
+            state, reward, done, _ = env.step(action)
+
+            rewards[i] += reward
+
+    writer.add_hparams(
+        {key: value for (key, value) in settings.items() if key not in ['device']},
+        {'average reward': np.mean(rewards),
+         'min reward': np.min(rewards),
+         'max reward': np.max(rewards)})

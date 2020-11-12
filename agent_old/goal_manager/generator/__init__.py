@@ -1,2 +1,0 @@
-from .i_generator import IGenerator
-from .simple_gridworld_generator import SimpleGridworldGenerator

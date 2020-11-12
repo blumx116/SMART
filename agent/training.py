@@ -75,7 +75,7 @@ def train(agent, env, settings, testfn=None, vizfn=None, savefn=None):
             if settings['VIZ_FREQ'] is not None and ts % settings['VIZ_FREQ'] == 0:
                 viz_after_episode = True
 
-            # agent.optimize()
+            agent.optimize()
 
         if test_after_episode:
             testfn(agent, ep, ts)

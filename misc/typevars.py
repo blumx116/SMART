@@ -33,12 +33,3 @@ class TrainSample(Generic[State, Action, Reward, OptionData]):
     option_trajectory: Trajectory[State, Action, Reward]
     option: Option[OptionData]
     terminal_state: State
-
-
-lambda sample: self._get_v_target_(
-    sample.initial_state,
-    sample.prev_option,
-    sample.suboption,
-    sample.option,
-    sample.suboption_trajectory,
-    sample.option_trajectory),

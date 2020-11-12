@@ -229,11 +229,13 @@ class AEvaluator(IEvaluator[State, Action, Reward, OptionData]):
         targets: List[torch.Tensor] = []
         for sample in samples:
             first_traj_reward: torch.Tensor = self._get_v_as_target_(
-                sample.initial_state, 
+                sample.initial_state,
+                sample.prev_option,
                 sample.suboption,
                 sample.suboption_trajectory)
             second_traj_reward: torch.Tensor = self._get_v_as_target_(
                 sample.midpoint_state,
+                sample.suboption,
                 sample.option,
                 sample.option_trajectory)
             #both torch.Tensor[float, q_model.device] : [1,]
@@ -294,6 +296,6 @@ class AEvaluator(IEvaluator[State, Action, Reward, OptionData]):
         # np.ndarray[float] : [len(traj), reward_dims]
         total_rewards: np.ndarray = np.asarray(np.sum(discounted_rewards, axis=0))
         # np.ndarray[float] : [reward_dims], reward_dims=1 if float
-        return torch.from_numpy(total_rewards).type(torch.float32).to(self.device)
+        return torch.from_numpy(total_rewards).type(torch.float32).to(self.v_model.device)
 
 

@@ -24,5 +24,5 @@ class Evaluator(AEvaluator[State, Action, Reward, Point]):
             state: State,
             prev_option: Optional[Option[Point]],
             option: Option[Point]) -> bool:
-        proba: float = self.planning_terminator.termination_probability(prev_option, option)
+        proba: float = self.planning_terminator.termination_probability(state, prev_option, option)
         return self.random.random() < proba

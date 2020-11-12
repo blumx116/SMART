@@ -3,3 +3,4 @@ env/mazeworld/mazeworld-caches/*
 *.cpython.*
 *.pyc
 .idea/
+/runs/

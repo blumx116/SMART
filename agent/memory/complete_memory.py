@@ -111,6 +111,20 @@ class CompleteMemory(IMemory[State, Action, Reward, OptionData]):
             current_node = Tree.get_next_left(current_node)
         return result
 
+    def trajectory_between(self,
+            first_node: Node[Option[OptionData]],
+            second_node: Node[Option[OptionData]]) -> Trajectory:
+        assert Tree.is_left_of(first_node, second_node)
+
+        result: Trajectory[State, Action, Reward] = [ ]
+        current_node: Node[Option[OptionData]] = second_node
+
+        while current_node is not None and current_node != first_node:
+            result = self._trajectory_for[current_node] + result
+            current_node = Tree.get_next_left(current_node)
+
+        return result
+
     def initial_state_for(self, 
             option_node: Node[Option[OptionData]]) -> State:
         """
@@ -170,7 +184,7 @@ class CompleteMemory(IMemory[State, Action, Reward, OptionData]):
             
             suboption_trajectory: Trajectory[State, Action, Reward] = \
                 self.trajectory_for(child_option_node)
-            option_trajectory: Trajectory[State, Action, Reward]= \
+            option_trajectory: Trajectory[State, Action, Reward] = \
                 self.trajectory_for(parent_option_node)
 
             initial_state: State = self.initial_state_for(child_option_node)
@@ -187,4 +201,3 @@ class CompleteMemory(IMemory[State, Action, Reward, OptionData]):
                 parent_option_node.value,
                 terminal_state))
         return result
-            

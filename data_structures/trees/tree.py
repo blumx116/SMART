@@ -151,8 +151,16 @@ class Tree(Generic[T]):
         return node
 
     @staticmethod
+    def is_left_of(self, left: Node[T], right: Node[T]) -> bool:
+        return Tree._is_in_direction_of_(left, right, 'left')
+
+    @staticmethod
+    def is_right_of(right: Node[T], left: Node[T]) -> bool:
+        return Tree._is_in_direction_of_(right, left, 'right')
+
+    @staticmethod
     def is_left_child(node: Node[T]) -> bool:
-        return Tree._is_child_in_direction(node, 'left')
+        return Tree._is_child_in_direction_(node, 'left')
 
     @staticmethod
     def is_right_child(node: Node[T]) -> bool:
@@ -292,9 +300,26 @@ class Tree(Generic[T]):
             node.get_relation('parent').get_relation(direction) == node
 
     @staticmethod
+    def _is_in_direction_of_(other: Node[T], reference: Node[T], direction: str) -> bool:
+        assert Tree.get_root(other) == Tree.get_root(reference)
+        direction = Tree._parse_direction_(direction)
+        # both nodes in the same tree
+        if other == reference:
+            return False
+
+        current: Node[T] = reference
+        while current is not None:
+            current = current.get_relation(direction)
+            if current == other:
+                return True
+
+        # we got to the end of the tree and didn't find it
+        return False
+
+    @staticmethod
     def _opposite_direction_(direction: str) -> str:
         direction = Tree._parse_direction_(direction)
-        return'left' if direction == 'right' else 'right'
+        return 'left' if direction == 'right' else 'right'
 
     @staticmethod
     def _parse_direction_(direction: str) -> str:
@@ -315,7 +340,7 @@ class Tree(Generic[T]):
         other_dir: str = Tree._opposite_direction_(direction)
         if not node.has_relation('parent'):
             return None
-        if Tree._is_child_in_direction_(other_dir):
+        if Tree._is_child_in_direction_(node, other_dir):
             return node.get_relation('parent')
         return Tree._get_next_parent_in_direction_(
                 direction,
